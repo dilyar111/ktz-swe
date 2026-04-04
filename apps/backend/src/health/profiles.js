@@ -32,16 +32,12 @@ function getProfileConfig(locomotiveType) {
     .trim()
     .toUpperCase();
 
+  const settings = require('../settingsStore').getSettings();
+
   if (type === 'TE33A') {
     return {
       profileId: 'TE33A',
-      weights: {
-        traction: 0.3,
-        brakes: 0.25,
-        thermal: 0.25,
-        electrical: 0.1,
-        signaling: 0.1,
-      },
+      weights: settings.weights.TE33A,
       /** Diesel: cooling load on engine — nudge thermal impacts up ~15% */
       thermalImpactMultiplier: 1.15,
       electricalMaxDeviation: 0.06,
@@ -51,13 +47,7 @@ function getProfileConfig(locomotiveType) {
 
   return {
     profileId: 'KZ8A',
-    weights: {
-      traction: 0.25,
-      brakes: 0.2,
-      thermal: 0.15,
-      electrical: 0.3,
-      signaling: 0.1,
-    },
+    weights: settings.weights.KZ8A,
     thermalImpactMultiplier: 1.0,
     /** Electric: catenary quality is safety-critical — trip earlier, penalize harder */
     electricalMaxDeviation: 0.05,
