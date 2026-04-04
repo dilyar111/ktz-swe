@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useCockpitData } from '@/hooks/useCockpitData';
 import { MetricCards } from '@/components/cockpit/MetricCards';
 import { DigitalTwin } from '@/components/cockpit/DigitalTwin';
+import { RecommendationsPanel } from '@/components/cockpit/RecommendationsPanel';
 import HealthBreakdownWidget from '@/components/HealthBreakdownWidget';
 import RouteContextWidget from '@/components/RouteContextWidget';
 import { cn } from '@/lib/utils';
@@ -68,6 +69,11 @@ export default function Cockpit() {
               </div>
             ) : null}
           </div>
+
+          <RecommendationsPanel
+            recommendations={data.recommendations}
+            healthStatus={data.healthStatus}
+          />
 
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 lg:col-span-3">
