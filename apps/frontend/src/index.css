@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 96%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 142 70% 45%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 210 40% 85%;
+    --muted: 217 33% 12%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 25 90% 50%;
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 96%;
+    --border: 217 33% 17%;
+    --input: 217 33% 15%;
+    --ring: 142 70% 45%;
+    --radius: 0.5rem;
+    --status-ok: 142 70% 45%;
+    --status-warning: 45 93% 47%;
+    --status-critical: 0 72% 51%;
+    --status-info: 217 91% 60%;
+    --panel: 222 47% 7%;
+    --panel-elevated: 222 47% 10%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: system-ui, Segoe UI, Roboto, sans-serif;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+@layer utilities {
+  .stroke-status-ok {
+    stroke: hsl(var(--status-ok));
+  }
+  .stroke-status-warning {
+    stroke: hsl(var(--status-warning));
+  }
+  .stroke-status-critical {
+    stroke: hsl(var(--status-critical));
+  }
+}
