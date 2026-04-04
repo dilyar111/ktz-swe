@@ -4,6 +4,7 @@ import { useCockpitData } from '@/hooks/useCockpitData';
 import { MetricCards } from '@/components/cockpit/MetricCards';
 import { DigitalTwin } from '@/components/cockpit/DigitalTwin';
 import { RecommendationsPanel } from '@/components/cockpit/RecommendationsPanel';
+import { MlRiskBadge } from '@/components/cockpit/MlRiskBadge';
 import HealthBreakdownWidget from '@/components/HealthBreakdownWidget';
 import RouteContextWidget from '@/components/RouteContextWidget';
 import { cn } from '@/lib/utils';
@@ -174,6 +175,7 @@ export default function Cockpit() {
                         Scenario: {formatScenarioName(data.demoScenario)}
                       </p>
                     ) : null}
+                    <MlRiskBadge mlRisk={data.mlRisk} />
                   </div>
                 </div>
 

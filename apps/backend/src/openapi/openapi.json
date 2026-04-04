@@ -526,6 +526,19 @@
           "signalQualityPct": { "type": "number" }
         }
       },
+      "MlRiskSupplementary": {
+        "type": "object",
+        "description": "HK-021 baseline ML risk — optional, synthetic-trained; HK-004 health remains primary",
+        "properties": {
+          "supplementary": { "type": "boolean", "example": true },
+          "enabled": { "type": "boolean" },
+          "modelVersion": { "type": "string", "example": "hk021-lr-v1" },
+          "riskScore": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Rounded P(elevated risk) × 100" },
+          "riskClass": { "type": "string", "enum": ["low", "medium", "high"] },
+          "riskProbability": { "type": "number", "description": "Raw probability when enabled" },
+          "note": { "type": "string", "description": "Present when model file missing or error" }
+        }
+      },
       "HealthForClient": {
         "type": "object",
         "description": "HK-004 explainable health + legacy UI fields",
@@ -568,7 +581,8 @@
             "type": "array",
             "description": "HK-015 normalized operator advice (deduped, critical-first)",
             "items": { "$ref": "#/components/schemas/OperatorRecommendation" }
-          }
+          },
+          "mlRisk": { "$ref": "#/components/schemas/MlRiskSupplementary" }
         }
       },
       "OperatorRecommendation": {

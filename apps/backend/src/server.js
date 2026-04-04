@@ -18,6 +18,7 @@ const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
 const { getSettings, updateSettings } = require('./settingsStore');
 const { computeRouteContext } = require('./routeContext');
+const { computeMlRisk } = require('./ml/riskInference');
 
 const openApiDocument = require('./openapi/openapi.json');
 
@@ -173,7 +174,8 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   const healthBase = computeHealthForClient(snapshotWithRoute);
   const recommendations = buildRecommendations(snapshotWithRoute, healthBase, activeAlerts);
-  const health = { ...healthBase, recommendations };
+  const mlRisk = computeMlRisk(snapshotWithRoute);
+  const health = { ...healthBase, recommendations, mlRisk };
   rememberCurrent(snapshotWithRoute, health, activeAlerts);
 
   const alertsPayload = {
