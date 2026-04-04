@@ -86,30 +86,32 @@ function evaluateAlerts(snapshot, prev) {
   /** @type {Alert[]} */
   const alerts = [];
 
+  const settings = require('../settingsStore').getSettings().thresholds;
+
   const temp = input.engine_temp;
   if (Number.isFinite(temp)) {
-    if (temp > 100) {
+    if (temp > settings.engine_temp_crit) {
       alerts.push(
         makeAlert({
           severity: 'critical',
           subsystem: 'thermal',
           code: 'OVERHEATING',
           title: 'Критический перегрев',
-          message: `Температура двигателя ${temp.toFixed(1)}°C превышает допустимый порог (>100°C).`,
+          message: `Температура двигателя ${temp.toFixed(1)}°C превышает допустимый порог (>${settings.engine_temp_crit}°C).`,
           recommendation:
             'Снизьте тягу и нагрузку, проверьте контур охлаждения, уровень охлаждающей жидкости и работу вентилятора.',
           timestamp: ts,
           locomotiveType,
         })
       );
-    } else if (temp > 90) {
+    } else if (temp > settings.engine_temp_warn) {
       alerts.push(
         makeAlert({
           severity: 'warning',
           subsystem: 'thermal',
           code: 'OVERHEATING',
           title: 'Повышенная температура',
-          message: `Температура двигателя ${temp.toFixed(1)}°C выше штатного диапазона (>90°C).`,
+          message: `Температура двигателя ${temp.toFixed(1)}°C выше штатного диапазона (>${settings.engine_temp_warn}°C).`,
           recommendation:
             'Снизьте нагрузку, наблюдайте за трендом температуры; при росте — подготовьтесь к остановке для осмотра.',
           timestamp: ts,
@@ -121,23 +123,23 @@ function evaluateAlerts(snapshot, prev) {
 
   const bp = input.brake_pressure;
   if (Number.isFinite(bp)) {
-    if (bp < 4.5) {
+    if (bp < settings.brake_pressure_crit) {
       alerts.push(
         makeAlert({
           severity: 'critical',
           subsystem: 'brakes',
           code: 'BRAKE_PRESSURE_DROP',
           title: 'Низкое давление в тормозной магистрали',
-          message: `Давление ${bp.toFixed(2)} бар ниже безопасного минимума (<4.5 бар).`,
+          message: `Давление ${bp.toFixed(2)} бар ниже безопасного минимума (<${settings.brake_pressure_crit} бар).`,
           recommendation:
             'Проверьте плотность тормозной магистрали, состояние компрессора и резервуаров; не начинайте движение без нормализации давления.',
           timestamp: ts,
           locomotiveType,
         })
       );
-    } else if (bp >= 4.5 && prev && Number.isFinite(prev.brake_pressure)) {
+    } else if (bp >= settings.brake_pressure_crit && prev && Number.isFinite(prev.brake_pressure)) {
       const dropBar = prev.brake_pressure - bp;
-      if (dropBar >= 0.3) {
+      if (dropBar >= settings.brake_pressure_drop_warn) {
         alerts.push(
           makeAlert({
             severity: 'warning',
@@ -172,7 +174,7 @@ function evaluateAlerts(snapshot, prev) {
           locomotiveType,
         })
       );
-    } else if (speed > limit * 0.98) {
+    } else if (speed > limit * settings.speed_margin_warn) {
       alerts.push(
         makeAlert({
           severity: 'warning',
@@ -188,7 +190,7 @@ function evaluateAlerts(snapshot, prev) {
     }
   }
 
-  const maxCurrent = locomotiveType === 'TE33A' ? 500 : 650;
+  const maxCurrent = locomotiveType === 'TE33A' ? settings.current_anomaly_te33a : settings.current_anomaly_kz8a;
   const curr = input.current;
   if (Number.isFinite(curr)) {
     if (curr > maxCurrent) {
@@ -207,7 +209,7 @@ function evaluateAlerts(snapshot, prev) {
       );
     } else if (prev && Number.isFinite(prev.current)) {
       const delta = Math.abs(curr - prev.current);
-      if (delta > 180) {
+      if (delta > settings.current_delta_warn) {
         alerts.push(
           makeAlert({
             severity: 'warning',
@@ -242,28 +244,28 @@ function evaluateAlerts(snapshot, prev) {
 
   const sq = input.signal_quality;
   if (Number.isFinite(sq)) {
-    if (sq < 70) {
+    if (sq < settings.signal_quality_crit) {
       alerts.push(
         makeAlert({
           severity: 'critical',
           subsystem: 'signaling',
           code: 'SIGNAL_DEGRADATION',
           title: 'Критическое качество сигнала',
-          message: `Качество телеметрии/сигнализации ${sq.toFixed(0)}% ниже допустимого порога (<70%).`,
+          message: `Качество телеметрии/сигнализации ${sq.toFixed(0)}% ниже допустимого порога (<${settings.signal_quality_crit}%).`,
           recommendation:
             'Проверьте антенны, канал связи и шкафы СЦБ; при нестабильности — снизьте скорость до восстановления связи.',
           timestamp: ts,
           locomotiveType,
         })
       );
-    } else if (sq < 85) {
+    } else if (sq < settings.signal_quality_warn) {
       alerts.push(
         makeAlert({
           severity: 'warning',
           subsystem: 'signaling',
           code: 'SIGNAL_DEGRADATION',
           title: 'Снижение качества сигнала',
-          message: `Качество канала ${sq.toFixed(0)}% — ниже комфортного запаса (<85%).`,
+          message: `Качество канала ${sq.toFixed(0)}% — ниже комфортного запаса (<${settings.signal_quality_warn}%).`,
           recommendation: 'Запланируйте проверку радиоканала и помех; следите за обновлением кабины.',
           timestamp: ts,
           locomotiveType,
@@ -277,7 +279,7 @@ function evaluateAlerts(snapshot, prev) {
   if (Number.isFinite(fc) && fc > 0) {
     const escalated = fc > prevFc;
     let severity = /** @type {AlertSeverity} */ ('warning');
-    if (fc >= 3) severity = 'critical';
+    if (fc >= settings.fault_count_crit) severity = 'critical';
     else if (escalated && prevFc >= 1) severity = 'critical';
     else if (escalated && fc - prevFc >= 2) severity = 'critical';
 

@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, AlertTriangle, History, FileText, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ScenarioControl from '@/components/ScenarioControl';
+import SettingsModal from '@/components/SettingsModal';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Cockpit', icon: LayoutDashboard },
@@ -15,6 +16,7 @@ const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 
 
 export default function Layout() {
   const [locomotiveType, setLocomotiveType] = useState('KZ8A');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     // Initial fetch to sync with backend state
@@ -110,8 +112,9 @@ export default function Layout() {
           <div className="w-px h-6 bg-border mx-2" />
           <button
             type="button"
+            onClick={() => setIsSettingsOpen(true)}
             className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
-            title="Настройки (скоро)"
+            title="Настройки"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -121,6 +124,8 @@ export default function Layout() {
       <main className="flex-1 overflow-auto bg-background p-4 lg:p-6">
         <Outlet context={{ locomotiveType }} />
       </main>
+
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
     </div>
   );
 }
