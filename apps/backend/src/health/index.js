@@ -117,6 +117,7 @@ function computeHealth(snapshot) {
     class: classFromTotal(total_score),
     status: statusFromTotal(total_score),
     profile: profile.profileId,
+    weights: profile.weights,
     subsystems,
     top_contributors,
   };
