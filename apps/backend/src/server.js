@@ -7,6 +7,9 @@ const cors = require('cors');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 
+
+const { getAllProfiles, getProfile } = require('./profiles/index');
+
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -34,6 +37,22 @@ app.get('/health', (_req, res) => {
     uptimeSec: Math.round(process.uptime()),
     at: new Date().toISOString(),
   });
+});
+
+
+app.get('/api/profiles', (_req, res) => {
+  res.json({ profiles: getAllProfiles() });
+});
+
+// один профиль по типу
+app.get('/api/profiles/:type', (req, res) => {
+  const profile = getProfile(req.params.type.toUpperCase());
+
+  if (!profile) {
+    return res.status(404).json({ error: 'Profile not found' });
+  }
+
+  res.json({ profile });
 });
 
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
@@ -75,8 +94,7 @@ app.get('/api/history', (req, res) => {
 io = initSocket(server, CLIENT_URL);
 
 /**
- * One-shot DX banner: backend is up; poll until Vite answers and telemetry exists (or timeout).
- * No stack traces — only console lines.
+ * One-shot DX banner
  */
 async function printSystemReadyBanner() {
   const maxWaitMs = 60000;
@@ -88,9 +106,7 @@ async function printSystemReadyBanner() {
     try {
       const r = await fetch(CLIENT_URL, { signal: AbortSignal.timeout(2000) });
       if (r.ok) frontendOk = true;
-    } catch {
-      /* dev server not up yet */
-    }
+    } catch {}
 
     const rows = history.getRange(Date.now() - 120000, Date.now());
     if (rows.length > 0) telemetryOk = true;
@@ -126,8 +142,7 @@ server.listen(PORT, () => {
 });
 
 /**
- * Заглушка: прозрачная формула для демо (заменить rule engine + ML слой).
- * @param {object} s
+ * Заглушка health
  */
 function computeHealthStub(s) {
   const speed = Number(s.speedKmh ?? s.speed ?? 0);
