@@ -8,6 +8,9 @@ const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
 
+
+const { getAllProfiles, getProfile } = require('./profiles/index');
+
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -59,6 +62,22 @@ app.get('/health', (_req, res) => {
     uptimeSec: Math.round(process.uptime()),
     at: new Date().toISOString(),
   });
+});
+
+
+app.get('/api/profiles', (_req, res) => {
+  res.json({ profiles: getAllProfiles() });
+});
+
+// один профиль по типу
+app.get('/api/profiles/:type', (req, res) => {
+  const profile = getProfile(req.params.type.toUpperCase());
+
+  if (!profile) {
+    return res.status(404).json({ error: 'Profile not found' });
+  }
+
+  res.json({ profile });
 });
 
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
@@ -127,8 +146,7 @@ app.get('/api/history', (req, res) => {
 io = initSocket(server, CLIENT_URL);
 
 /**
- * One-shot DX banner: backend is up; poll until Vite answers and telemetry exists (or timeout).
- * No stack traces — only console lines.
+ * One-shot DX banner
  */
 async function printSystemReadyBanner() {
   const maxWaitMs = 60000;
@@ -140,9 +158,7 @@ async function printSystemReadyBanner() {
     try {
       const r = await fetch(CLIENT_URL, { signal: AbortSignal.timeout(2000) });
       if (r.ok) frontendOk = true;
-    } catch {
-      /* dev server not up yet */
-    }
+    } catch {}
 
     const rows = history.getRange(Date.now() - 120000, Date.now());
     if (rows.length > 0) telemetryOk = true;
@@ -176,3 +192,103 @@ server.listen(PORT, () => {
   console.log(`   Health:  http://localhost:${PORT}/health`);
   void printSystemReadyBanner();
 });
+
+/**
+ * Заглушка health
+ */
+function computeHealthStub(s) {
+  const profile = getProfile(s.locomotiveType);
+  const thresholds = profile ? profile.thresholds : {};
+  const weights = profile ? profile.healthWeights : {};
+  const recommendations = profile ? profile.recommendations : {};
+
+  const contributors = [];
+  let totalPenalty = 0;
+
+  // --- Thermal / diesel penalties ---
+  const temp = Number(s.oilTempC ?? s.engineTempC ?? s.oil_temp ?? s.inverter_temp ?? 70);
+  const tempKey = s.locomotiveType === 'TE33A' ? 'oil_temp' : 'inverter_temp';
+  const tempThresh = thresholds[tempKey] ?? { warn: 85, crit: 100 };
+  if (temp >= tempThresh.crit) {
+    const penalty = 25;
+    totalPenalty += penalty;
+    contributors.push({ key: 'thermal', label: 'Temperature critical', penalty });
+  } else if (temp >= tempThresh.warn) {
+    const penalty = 12;
+    totalPenalty += penalty;
+    contributors.push({ key: 'thermal', label: 'Temperature warning', penalty });
+  }
+
+  // --- Brake pressure penalties ---
+  const brake = Number(s.brakePressure ?? s.brake_pressure ?? 999);
+  const brakeThresh = thresholds['brake_pressure'] ?? { warnLow: 350, critLow: 300 };
+  if (brake < brakeThresh.critLow) {
+    const penalty = 25;
+    totalPenalty += penalty;
+    contributors.push({ key: 'brakes', label: 'Brake pressure critical', penalty });
+  } else if (brake < brakeThresh.warnLow) {
+    const penalty = 12;
+    totalPenalty += penalty;
+    contributors.push({ key: 'brakes', label: 'Brake pressure low', penalty });
+  }
+
+  // --- Speed penalties ---
+  const speed = Number(s.speedKmh ?? s.speed ?? 0);
+  const speedThresh = thresholds['speed'] ?? { warn: 100, crit: 120 };
+  if (speed >= speedThresh.crit) {
+    const penalty = 20;
+    totalPenalty += penalty;
+    contributors.push({ key: 'traction', label: 'Overspeed critical', penalty });
+  } else if (speed >= speedThresh.warn) {
+    const penalty = 8;
+    totalPenalty += penalty;
+    contributors.push({ key: 'traction', label: 'Overspeed warning', penalty });
+  }
+
+  // --- Fault codes ---
+  const faults = Number(s.faultCodeCount ?? s.fault_count ?? 0);
+  const faultThresh = thresholds['fault_count'] ?? { warn: 1, crit: 3 };
+  if (faults >= faultThresh.crit) {
+    const penalty = 20;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Multiple fault codes', penalty });
+  } else if (faults >= faultThresh.warn) {
+    const penalty = 8;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Fault code active', penalty });
+  }
+
+  // --- Signal quality (TE33A only) ---
+  const signal = Number(s.signalQuality ?? s.signal_quality ?? 100);
+  const sigThresh = thresholds['signal_quality'] ?? { warnLow: 60, critLow: 30 };
+  if (signal < sigThresh.critLow) {
+    const penalty = 15;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Signal loss critical', penalty });
+  } else if (signal < sigThresh.warnLow) {
+    const penalty = 7;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Signal quality low', penalty });
+  }
+
+  const score = Math.max(0, Math.min(100, 100 - totalPenalty));
+
+  // --- Recommendation ---
+  let recommendation = recommendations.default ?? 'Продолжать наблюдение';
+  if (contributors.length > 0) {
+    const top = contributors[0].key;
+    const isCrit = score < 50;
+    const recKey = `${top}_${isCrit ? 'crit' : 'warn'}`;
+    recommendation = recommendations[recKey] ?? recommendations.default ?? recommendation;
+  }
+
+  return {
+    score: Math.round(score),
+    class: score >= 80 ? 'A' : score >= 50 ? 'C' : 'E',
+    status: score >= 80 ? 'normal' : score >= 50 ? 'warning' : 'critical',
+    contributors: contributors.sort((a, b) => b.penalty - a.penalty).slice(0, 5),
+    recommendation,
+    locomotiveType: s.locomotiveType,
+    profileUsed: profile ? profile.id : 'fallback',
+  };
+}
