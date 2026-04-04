@@ -112,7 +112,7 @@ app.post('/api/telemetry/ingest', (req, res) => {
   telemetryState.set(compositeKey, nextState);
 
   const health = computeHealthForClient(snapshot);
-  rememberCurrent(snapshot, health, alerts);
+  rememberCurrent(snapshot, health);
 
   const alertsPayload = {
     locomotiveId,
@@ -156,8 +156,33 @@ app.get('/api/current', (req, res) => {
 app.get('/api/history', (req, res) => {
   const from = req.query.from ? Number(req.query.from) : Date.now() - 15 * 60 * 1000;
   const to = req.query.to ? Number(req.query.to) : Date.now();
-  const rows = history.getRange(from, to);
-  res.json({ from, to, count: rows.length, entries: rows });
+  const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+  const limit = req.query.limit ? Number(req.query.limit) : 0;
+
+  let rows = history.getRange(from, to);
+
+  if (locomotiveType) {
+    rows = rows.filter((r) => r.payload && r.payload.locomotiveType === locomotiveType);
+  }
+
+  if (locomotiveId) {
+    rows = rows.filter((r) => r.payload && r.payload.locomotiveId === locomotiveId);
+  }
+
+  if (limit > 0) {
+    rows = rows.slice(0, limit);
+  }
+
+  res.json({
+    from,
+    to,
+    count: rows.length,
+    locomotiveType: locomotiveType || undefined,
+    locomotiveId: locomotiveId || undefined,
+    limit: limit || undefined,
+    entries: rows,
+  });
 });
 
 io = initSocket(server, CLIENT_URL);
