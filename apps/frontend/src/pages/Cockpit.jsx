@@ -14,7 +14,7 @@ function healthStrokeClass(status) {
 
 export default function Cockpit() {
   const { locomotiveType } = useOutletContext();
-  const { data, history, connected, profileMismatch, streamType, initialLoading } = useCockpitData(locomotiveType);
+  const { data, history, connected, profileMismatch, streamType, initialLoading, throughput } = useCockpitData(locomotiveType);
 
   const showLoading = initialLoading || (connected && !lastMeaningfulData(data, profileMismatch));
 
@@ -48,6 +48,18 @@ export default function Cockpit() {
                 {connected ? 'ONLINE' : 'OFFLINE'} · тип {data.locomotiveType} · класс {data.healthClass}
               </p>
             </div>
+            {throughput?.rate > 0 ? (
+              <div className="bg-muted/50 rounded-lg px-4 py-2 border border-border text-right flex flex-col justify-center">
+                <span className="text-sm font-bold font-mono text-primary flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  {throughput.rate} msg/s
+                </span>
+                <span className="text-xs font-mono text-muted-foreground">proc: {throughput.avgLatency.toFixed(1)}ms</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-12 gap-4">

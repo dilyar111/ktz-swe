@@ -5,6 +5,29 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 const API_BASE = import.meta.env.VITE_API_URL || WS_URL;
 
+function throttle(func, wait) {
+  let timeout = null;
+  let previous = 0;
+  return function (...args) {
+    const now = Date.now();
+    const remaining = wait - (now - previous);
+    if (remaining <= 0 || remaining > wait) {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      previous = now;
+      func.apply(this, args);
+    } else if (!timeout) {
+      timeout = setTimeout(() => {
+        previous = Date.now();
+        timeout = null;
+        func.apply(this, args);
+      }, remaining);
+    }
+  };
+}
+
 /** ID по умолчанию — как в симуляторе (см. apps/simulator) */
 const DEFAULT_LOCOMOTIVE_ID = {
   KZ8A: 'KZ8A-DEMO-01',
@@ -61,6 +84,7 @@ export function useCockpitData(locomotiveType) {
   const [history, setHistory] = useState([]);
   const [connected, setConnected] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [throughput, setThroughput] = useState({ rate: 0, avgLatency: 0 });
   /** Алерты из alerts:update, пришедшие до первого snapshot (редкий порядок событий). */
   const pendingAlertsRef = useRef(/** @type {unknown[] | null} */ (null));
 
@@ -121,7 +145,7 @@ export function useCockpitData(locomotiveType) {
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
 
-    socket.on('telemetry:update', (payload) => {
+    const handleUpdate = throttle((payload) => {
       setInitialLoading(false);
       const fromPayload = payload?.alerts;
       const mergedAlerts = Array.isArray(fromPayload)
@@ -139,6 +163,12 @@ export function useCockpitData(locomotiveType) {
       if (model?.metrics) {
         setHistory((prev) => [...prev, model.metrics].slice(-120));
       }
+    }, 200);
+
+    socket.on('telemetry:update', handleUpdate);
+
+    socket.on('telemetry:throughput', (t) => {
+      setThroughput(t);
     });
 
     socket.on('alerts:update', (p) => {
@@ -181,5 +211,6 @@ export function useCockpitData(locomotiveType) {
     profileMismatch,
     streamType,
     initialLoading,
+    throughput,
   };
 }

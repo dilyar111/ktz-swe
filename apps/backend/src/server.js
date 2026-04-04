@@ -23,6 +23,27 @@ let io = null;
 
 const history = new HistoryBuffer({ maxMs: 15 * 60 * 1000 });
 
+/** Throughput metrics for highload mode */
+const throughputStats = {
+  ingestCount: 0,
+  totalLatencyMs: 0
+};
+
+setInterval(() => {
+  if (throughputStats.ingestCount > 0) {
+    const rate = throughputStats.ingestCount;
+    const avgLatency = throughputStats.totalLatencyMs / rate;
+    console.log(`[Highload] Throughput: ${rate} msg/s | Avg Latency: ${avgLatency.toFixed(2)} ms`);
+    if (io) {
+      io.emit('telemetry:throughput', { rate, avgLatency });
+    }
+  } else if (io) {
+    io.emit('telemetry:throughput', { rate: 0, avgLatency: 0 });
+  }
+  throughputStats.ingestCount = 0;
+  throughputStats.totalLatencyMs = 0;
+}, 1000);
+
 /** Состояние для дельт (тормоза, ток, коды) — ключ locomotiveType:locomotiveId */
 const telemetryState = new Map();
 
@@ -87,6 +108,7 @@ app.get('/api/profiles/:type', (req, res) => {
 
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
 app.post('/api/telemetry/ingest', (req, res) => {
+  const startMs = performance.now();
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const ts = body.timestamp ? Date.parse(body.timestamp) : Date.now();
   if (Number.isNaN(ts)) {
@@ -124,6 +146,10 @@ app.post('/api/telemetry/ingest', (req, res) => {
   emitToAll(io, 'telemetry:update', { snapshot, health, alerts });
   emitToAll(io, 'alerts:update', alertsPayload);
   emitToAll(io, 'health:update', health);
+
+  const endMs = performance.now();
+  throughputStats.ingestCount += 1;
+  throughputStats.totalLatencyMs += (endMs - startMs);
 
   res.status(202).json({ accepted: true, health, alerts });
 });
