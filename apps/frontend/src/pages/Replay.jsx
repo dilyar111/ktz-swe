@@ -88,6 +88,7 @@ export default function Replay() {
       locomotiveType,
       locomotiveId,
       includeHealth: '1',
+      order: 'asc',
     });
     try {
       const res = await fetch(`${API_BASE}/api/history?${params}`);
@@ -133,7 +134,9 @@ export default function Replay() {
           <h1 className="text-2xl font-bold tracking-tight">Replay</h1>
           <p className="text-sm text-muted-foreground mt-1 font-mono">
             {locomotiveType} · {locomotiveId} · данные из{' '}
-            <code className="rounded bg-muted px-1">GET /api/history?includeHealth=1</code>
+            <code className="rounded bg-muted px-1">
+              {'GET /api/history?includeHealth=1&order=asc'}
+            </code>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

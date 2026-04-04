@@ -200,12 +200,68 @@ app.get('/api/current', (req, res) => {
   res.json({ snapshot: pair.snapshot, health: pair.health, alerts: pair.alerts ?? [] });
 });
 
+/**
+ * HK-028 — deterministic time for sorting / limiting history rows.
+ * Uses buffer `ts` first; then payload.timestamp, createdAt, receivedAt (parsed safely).
+ */
+function historyEntryTimeMs(entry) {
+  if (!entry || typeof entry !== 'object') return 0;
+  const tBuf = entry.ts;
+  if (typeof tBuf === 'number' && Number.isFinite(tBuf)) return tBuf;
+  const p = entry.payload;
+  if (!p || typeof p !== 'object') return 0;
+  const raw = p.timestamp ?? p.createdAt ?? p.receivedAt ?? p.ts;
+  if (raw == null || raw === '') return 0;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  const parsed = Date.parse(String(raw));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const HISTORY_LIMIT_MAX = 100000;
+
+/**
+ * Returns the latest `limit` rows by time (or all if limit is 0), then orders for the response.
+ *
+ * - Default: newest → oldest (desc). Same request + same data → same order (stable tie-break by input index).
+ * - `limit` applies to the *most recent* N entries by timestamp (after filters), not “first N in buffer order”.
+ * - `order=asc`: same N entries, reversed → oldest → newest (replay / time-series charts).
+ */
+function applyHistoryLimitAndOrder(rows, limit, orderAsc) {
+  const indexed = rows.map((row, i) => ({ row, i }));
+  indexed.sort((a, b) => {
+    const dt = historyEntryTimeMs(b.row) - historyEntryTimeMs(a.row);
+    if (dt !== 0) return dt;
+    return a.i - b.i;
+  });
+  let ordered = indexed.map((x) => x.row);
+  if (limit > 0 && ordered.length > limit) {
+    ordered = ordered.slice(0, limit);
+  }
+  if (orderAsc) {
+    ordered = ordered.slice().reverse();
+  }
+  return ordered;
+}
+
 app.get('/api/history', (req, res) => {
   const from = req.query.from ? Number(req.query.from) : Date.now() - 15 * 60 * 1000;
   const to = req.query.to ? Number(req.query.to) : Date.now();
   const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
   const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
-  const limit = req.query.limit ? Number(req.query.limit) : 0;
+
+  let limit = 0;
+  const limitRaw = req.query.limit;
+  if (limitRaw !== undefined && limitRaw !== null && String(limitRaw).trim() !== '') {
+    const n = Number(limitRaw);
+    if (Number.isFinite(n) && n > 0) {
+      limit = Math.min(Math.floor(n), HISTORY_LIMIT_MAX);
+    }
+  }
+
+  const orderRaw = String(req.query.order ?? '')
+    .trim()
+    .toLowerCase();
+  const orderAsc = orderRaw === 'asc' || orderRaw === 'chronological';
 
   let rows = history.getRange(from, to);
 
@@ -217,9 +273,7 @@ app.get('/api/history', (req, res) => {
     rows = rows.filter((r) => r.payload && r.payload.locomotiveId === locomotiveId);
   }
 
-  if (limit > 0) {
-    rows = rows.slice(-limit);
-  }
+  rows = applyHistoryLimitAndOrder(rows, limit, orderAsc);
 
   const includeHealth = ['1', 'true', 'yes'].includes(
     String(req.query.includeHealth ?? '').toLowerCase()
@@ -240,6 +294,7 @@ app.get('/api/history', (req, res) => {
     locomotiveType: locomotiveType || undefined,
     locomotiveId: locomotiveId || undefined,
     limit: limit || undefined,
+    order: orderAsc ? 'asc' : 'desc',
     includeHealth: includeHealth || undefined,
     entries,
   });
