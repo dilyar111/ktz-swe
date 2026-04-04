@@ -1,0 +1,16 @@
+{
+  "vibrationMmS": 0.2632,
+  "healthScore": 0.2451,
+  "engineTempC": 0.1333,
+  "signalQualityPct": 0.0919,
+  "brakePressureBar": 0.0634,
+  "tractionCurrentA": 0.0582,
+  "faultCodeCount": 0.049,
+  "fuelLevelPct": 0.0459,
+  "oilTempC": 0.0208,
+  "speedKmh": 0.0195,
+  "lineVoltageV": 0.0048,
+  "locomotiveType": 0.003,
+  "batteryVoltageV": 0.0021,
+  "speedLimitKmh": 0.0
+}

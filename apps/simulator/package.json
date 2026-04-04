@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "highload": "node src/highload.js"
+    "highload": "node src/highload.js",
+    "export-dataset": "node src/exportDataset.js"
   }
 }

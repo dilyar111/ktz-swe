@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 const API_BASE = import.meta.env.VITE_API_URL || WS_URL;
+
+/** HK-019 — if no telemetry for this long while socket is up, treat as stale (simulator stopped, etc.). */
+export const STALE_TELEMETRY_MS = 8000;
 
 function throttle(func, wait) {
   let timeout = null;
@@ -33,13 +36,6 @@ const DEFAULT_LOCOMOTIVE_ID = {
   KZ8A: 'KZ8A-DEMO-01',
   TE33A: 'TE33A-DEMO-01',
 };
-
-function snapshotReceivedAtMs(snapshot) {
-  const raw = snapshot?.receivedAt ?? snapshot?.timestamp;
-  if (!raw) return 0;
-  const t = Date.parse(raw);
-  return Number.isNaN(t) ? 0 : t;
-}
 
 function normalizeMetrics(snap, locomotiveType) {
   const isKz = locomotiveType === 'KZ8A';
@@ -90,10 +86,31 @@ function buildCockpitModel(locomotiveType, snapshot, health, alerts = []) {
   };
 }
 
+/**
+ * HK-019 — single badge state for UI (transport + freshness).
+ * @param {boolean} connected
+ * @param {boolean} hasEverConnected
+ * @param {boolean} isReconnecting
+ * @param {boolean} isStale
+ */
+export function deriveConnectionStatus(connected, hasEverConnected, isReconnecting, isStale) {
+  if (!connected) {
+    if (isReconnecting) return 'reconnecting';
+    if (!hasEverConnected) return 'connecting';
+    return 'offline';
+  }
+  if (isStale) return 'stale';
+  return 'online';
+}
+
 export function useCockpitData(locomotiveType) {
   const [lastPayload, setLastPayload] = useState(null);
   const [history, setHistory] = useState([]);
   const [connected, setConnected] = useState(false);
+  const [hasEverConnected, setHasEverConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [lastTelemetryAt, setLastTelemetryAt] = useState(/** @type {number | null} */ (null));
+  const [tick, setTick] = useState(0);
   const [initialLoading, setInitialLoading] = useState(true);
   const [throughput, setThroughput] = useState({ rate: 0, avgLatency: 0 });
   /** Алерты из alerts:update, пришедшие до первого snapshot (редкий порядок событий). */
@@ -104,55 +121,91 @@ export function useCockpitData(locomotiveType) {
     setHistory([]);
     setLastPayload(null);
     setInitialLoading(true);
+    setLastTelemetryAt(null);
     pendingAlertsRef.current = null;
+  }, [locomotiveType]);
+
+  const bootstrapFromRest = useCallback(async () => {
+    const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
+    const params = new URLSearchParams({ locomotiveType, locomotiveId });
+
+    try {
+      const res = await fetch(`${API_BASE}/api/current?${params.toString()}`);
+      if (!res.ok) return;
+
+      const json = await res.json();
+      if (json.snapshot && json.health) {
+        const alerts = Array.isArray(json.alerts) ? json.alerts : pendingAlertsRef.current ?? [];
+        pendingAlertsRef.current = null;
+        setLastPayload({
+          snapshot: json.snapshot,
+          health: json.health,
+          alerts,
+        });
+        setLastTelemetryAt(Date.now());
+        const model = buildCockpitModel(locomotiveType, json.snapshot, json.health, alerts);
+        if (model?.metrics) {
+          setHistory([model.metrics]);
+        }
+      }
+    } catch {
+      /* сокет подхватит */
+    }
   }, [locomotiveType]);
 
   // Стартовый снимок + алерты с backend REST (тот же состав, что в WebSocket)
   useEffect(() => {
     let cancelled = false;
-    const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
-    const params = new URLSearchParams({ locomotiveType, locomotiveId });
 
-    async function fetchCurrent() {
-      try {
-
-        const res = await fetch(`${API_BASE}/api/current?${params.toString()}`);
-        if (!res.ok) return; // 404 — нет данных, просто ждём сокет
-
-        const json = await res.json();
-        if (!cancelled && json.snapshot && json.health) {
-          const alerts = Array.isArray(json.alerts)
-            ? json.alerts
-            : pendingAlertsRef.current ?? [];
-          pendingAlertsRef.current = null;
-          setLastPayload({
-            snapshot: json.snapshot,
-            health: json.health,
-            alerts,
-          });
-          const model = buildCockpitModel(locomotiveType, json.snapshot, json.health, alerts);
-          if (model?.metrics) {
-            setHistory([model.metrics]);
-          }
-        }
-      } catch {
-        /* сокет подхватит */
-      } finally {
-        if (!cancelled) setInitialLoading(false);
-      }
+    async function run() {
+      await bootstrapFromRest();
+      if (!cancelled) setInitialLoading(false);
     }
 
-    void fetchCurrent();
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [locomotiveType]);
+  }, [locomotiveType, bootstrapFromRest]);
+
+  // HK-019 — recompute stale detection every second without new telemetry
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isStale = useMemo(() => {
+    if (!connected || lastTelemetryAt == null) return false;
+    return Date.now() - lastTelemetryAt > STALE_TELEMETRY_MS;
+  }, [connected, lastTelemetryAt, tick]);
+
+  const telemetryAgeSec = useMemo(() => {
+    if (lastTelemetryAt == null) return null;
+    return Math.max(0, Math.floor((Date.now() - lastTelemetryAt) / 1000));
+  }, [lastTelemetryAt, tick]);
+
+  const connectionStatus = useMemo(
+    () => deriveConnectionStatus(connected, hasEverConnected, isReconnecting, isStale),
+    [connected, hasEverConnected, isReconnecting, isStale]
+  );
 
   useEffect(() => {
     const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
+    socket.on('connect', () => {
+      setConnected(true);
+      setHasEverConnected(true);
+      setIsReconnecting(false);
+      void bootstrapFromRest();
+    });
+
+    socket.on('disconnect', () => {
+      setConnected(false);
+    });
+
+    socket.io.on('reconnect_attempt', () => {
+      setIsReconnecting(true);
+    });
 
     const handleUpdate = throttle((payload) => {
       setInitialLoading(false);
@@ -174,7 +227,10 @@ export function useCockpitData(locomotiveType) {
       }
     }, 200);
 
-    socket.on('telemetry:update', handleUpdate);
+    socket.on('telemetry:update', (payload) => {
+      setLastTelemetryAt(Date.now());
+      handleUpdate(payload);
+    });
 
     socket.on('telemetry:throughput', (t) => {
       setThroughput(t);
@@ -197,9 +253,10 @@ export function useCockpitData(locomotiveType) {
     });
     return () => {
       socket.removeAllListeners();
+      socket.io.off('reconnect_attempt');
       socket.close();
     };
-  }, [locomotiveType]);
+  }, [locomotiveType, bootstrapFromRest]);
 
   const data = lastPayload
     ? buildCockpitModel(
@@ -217,6 +274,10 @@ export function useCockpitData(locomotiveType) {
     data,
     history,
     connected,
+    connectionStatus,
+    isStale,
+    lastTelemetryAt,
+    telemetryAgeSec,
     profileMismatch,
     streamType,
     initialLoading,

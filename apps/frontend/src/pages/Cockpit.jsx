@@ -1,12 +1,14 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useCockpitData } from '@/hooks/useCockpitData';
+import { useCockpitData, STALE_TELEMETRY_MS } from '@/hooks/useCockpitData';
 import { MetricCards } from '@/components/cockpit/MetricCards';
 import { DigitalTwin } from '@/components/cockpit/DigitalTwin';
 import { RecommendationsPanel } from '@/components/cockpit/RecommendationsPanel';
 import { MlRiskBadge } from '@/components/cockpit/MlRiskBadge';
 import HealthBreakdownWidget from '@/components/HealthBreakdownWidget';
+import RiskScoreWidget from '@/components/RiskScoreWidget';
 import RouteContextWidget from '@/components/RouteContextWidget';
+import ConnectionStatusBadge from '@/components/ConnectionStatusBadge';
 import { cn } from '@/lib/utils';
 
 function healthStrokeClass(status) {
@@ -23,7 +25,18 @@ function formatScenarioName(id) {
 
 export default function Cockpit() {
   const { locomotiveType } = useOutletContext();
-  const { data, history, connected, profileMismatch, streamType, initialLoading, throughput } = useCockpitData(locomotiveType);
+  const {
+    data,
+    history,
+    connected,
+    connectionStatus,
+    isStale,
+    telemetryAgeSec,
+    profileMismatch,
+    streamType,
+    initialLoading,
+    throughput,
+  } = useCockpitData(locomotiveType);
 
   const showLoading = initialLoading || (connected && !lastMeaningfulData(data, profileMismatch));
 
@@ -43,18 +56,41 @@ export default function Cockpit() {
         <div className="flex flex-col items-center justify-center min-h-[320px] gap-4">
           <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
           <p className="text-muted-foreground font-mono text-sm">
-            {connected ? 'Ожидание телеметрии…' : 'Подключение к KTZ API…'}
+            {connectionStatus === 'reconnecting'
+              ? 'Переподключение к KTZ API…'
+              : connected
+                ? 'Ожидание телеметрии…'
+                : connectionStatus === 'connecting'
+                  ? 'Подключение к KTZ API…'
+                  : 'Нет соединения с KTZ API…'}
           </p>
         </div>
       ) : null}
 
       {!showLoading && data ? (
         <>
-          <div className="flex items-center justify-between">
-            <div>
+          {isStale ? (
+            <div
+              className="rounded-lg border border-status-warning/45 bg-status-warning/10 px-4 py-2.5 text-sm text-foreground flex flex-wrap items-center gap-2"
+              role="status"
+            >
+              <span aria-hidden>⚠️</span>
+              <span>
+                Live telemetry paused — last sample{' '}
+                <span className="font-mono tabular-nums">
+                  {telemetryAgeSec != null ? `${telemetryAgeSec}s` : '—'}
+                </span>{' '}
+                ago (expected within ~{Math.round(STALE_TELEMETRY_MS / 1000)}s).
+              </span>
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
               <h2 className="text-2xl font-bold">{data.locomotive_id}</h2>
-              <p className="text-muted-foreground font-mono text-sm">
-                {connected ? 'ONLINE' : 'OFFLINE'} · тип {data.locomotiveType} · класс {data.healthClass}
+              <ConnectionStatusBadge status={connectionStatus} />
+              <p className="text-muted-foreground font-mono text-sm w-full sm:w-auto">
+                тип {data.locomotiveType} · класс {data.healthClass}
               </p>
             </div>
             {throughput?.rate > 0 ? (
@@ -202,6 +238,10 @@ export default function Cockpit() {
 
                 <div className="mt-6 w-full max-w-lg space-y-4">
                   <HealthBreakdownWidget health={data.raw?.health} />
+                  <RiskScoreWidget
+                    locoType={locomotiveType}
+                    locomotiveId={data.raw?.snapshot?.locomotiveId}
+                  />
                   <RouteContextWidget
                     routeContext={data.routeContext}
                     speedKmh={data.metrics?.speed}
@@ -227,10 +267,19 @@ export default function Cockpit() {
         </>
       ) : null}
 
-      {!connected && !data ? (
-        <div className="flex flex-col items-center justify-center min-h-[240px] gap-2 text-muted-foreground text-sm">
-          <p>Нет соединения с WebSocket ({import.meta.env.VITE_WS_URL || 'http://localhost:5000'}).</p>
-          <p>Запустите из корня: npm run dev</p>
+      {!showLoading && !data && !profileMismatch ? (
+        <div className="flex flex-col items-center justify-center min-h-[240px] gap-2 text-muted-foreground text-sm text-center px-4">
+          <ConnectionStatusBadge status={connectionStatus} className="text-xs" />
+          <p>
+            {connectionStatus === 'reconnecting'
+              ? 'Переподключение к WebSocket…'
+              : connectionStatus === 'connecting'
+                ? 'Установка соединения с KTZ API…'
+                : `Нет соединения с WebSocket (${import.meta.env.VITE_WS_URL || 'http://localhost:5000'}).`}
+          </p>
+          {connectionStatus === 'offline' ? (
+            <p className="text-xs">Запустите backend и симулятор из корня: npm run dev</p>
+          ) : null}
         </div>
       ) : null}
     </div>

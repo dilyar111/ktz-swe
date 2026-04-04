@@ -24,6 +24,8 @@ const openApiDocument = require('./openapi/openapi.json');
 
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+/** HK-021 supplementary ML risk (FastAPI) — optional */
+const ML_RISK_URL = (process.env.ML_RISK_URL || 'http://127.0.0.1:8001').replace(/\/$/, '');
 
 const app = express();
 const server = http.createServer(app);
@@ -210,6 +212,65 @@ app.get('/api/current', (req, res) => {
     health: pair.health,
     alerts: Array.isArray(pair.alerts) ? pair.alerts : [],
   });
+});
+
+/**
+ * HK-021 — proxy to Python ML risk service (supplementary indicator; rule-based health is primary).
+ * GET /api/ml/risk?locomotiveType=&locomotiveId=
+ */
+function mlPayloadFromPair(pair) {
+  const snap = pair.snapshot && typeof pair.snapshot === 'object' ? pair.snapshot : {};
+  const health = pair.health && typeof pair.health === 'object' ? pair.health : {};
+  const num = (v) => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    speedKmh: num(snap.speedKmh),
+    speedLimitKmh: num(snap.speedLimitKmh),
+    engineTempC: num(snap.engineTempC),
+    oilTempC: num(snap.oilTempC),
+    brakePressureBar: num(snap.brakePressureBar),
+    fuelLevelPct: snap.fuelLevelPct != null ? num(snap.fuelLevelPct) : null,
+    tractionCurrentA: num(snap.tractionCurrentA ?? snap.current),
+    batteryVoltageV: num(snap.batteryVoltageV),
+    lineVoltageV: num(snap.lineVoltageV),
+    faultCodeCount: num(snap.faultCodeCount),
+    signalQualityPct: num(snap.signalQualityPct),
+    vibrationMmS: num(snap.vibrationMmS),
+    healthScore: num(health.total_score ?? health.score),
+    locomotiveType: String(snap.locomotiveType ?? 'KZ8A'),
+  };
+}
+
+app.get('/api/ml/risk', async (req, res) => {
+  const locomotiveType =
+    typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId =
+    typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+  const pair = getCurrentEntry({ locomotiveType, locomotiveId });
+  if (!pair) {
+    return res.status(404).json({ mlAvailable: false, error: 'no snapshot' });
+  }
+  const body = mlPayloadFromPair(pair);
+  try {
+    const r = await fetch(`${ML_RISK_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      return res.status(503).json({ mlAvailable: false, error: text || `ML HTTP ${r.status}` });
+    }
+    const json = await r.json();
+    return res.json({ mlAvailable: true, ...json });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(503).json({ mlAvailable: false, error: msg });
+  }
 });
 
 /**
