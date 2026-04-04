@@ -9,7 +9,7 @@ const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
 const { evaluateAlerts } = require('./alerts');
 const { updateAlertsForLocomotive, getActiveAlerts, ackAlert } = require('./alerts/store');
-
+const { rememberCurrent, getCurrentEntry } = require('./currentStore');
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
@@ -48,31 +48,6 @@ setInterval(() => {
 
 /** Состояние для дельт (тормоза, ток, коды) — ключ locomotiveType:locomotiveId */
 const telemetryState = new Map();
-
-/** Последний snapshot + health + alerts для быстрого REST и демо без ожидания WebSocket */
-const currentStore = {
-  /** @type {{ snapshot: object, health: object, alerts: object[] } | null} */
-  lastOverall: null,
-  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
-  byComposite: new Map(),
-  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
-  byType: new Map(),
-  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
-  byLocomotiveId: new Map(),
-};
-
-/**
- * @param {object} snapshot
- * @param {object} health
- * @param {object[]} alerts
- */
-function rememberCurrent(snapshot, health, alerts) {
-  const pair = { snapshot, health, alerts };
-  currentStore.lastOverall = pair;
-  currentStore.byComposite.set(`${snapshot.locomotiveType}:${snapshot.locomotiveId}`, pair);
-  currentStore.byType.set(snapshot.locomotiveType, pair);
-  currentStore.byLocomotiveId.set(snapshot.locomotiveId, pair);
-}
 
 app.use(
   cors({
@@ -180,32 +155,23 @@ app.post('/api/telemetry/ingest', (req, res) => {
   throughputStats.ingestCount += 1;
   throughputStats.totalLatencyMs += (endMs - startMs);
 
-  res.status(202).json({ accepted: true, health, alerts });
+  res.status(202).json({ accepted: true, health, alerts: activeAlerts });
 });
 
 /**
- * Текущий snapshot (после ingest симулятора данные всегда актуальны).
- * Query: locomotiveType, locomotiveId — можно вместе или по отдельности; без query — последний глобально.
+ * Текущий snapshot из currentStore (health вычислен движком HK-004 на ingest).
+ * Query: locomotiveType, locomotiveId — вместе или по отдельности; без query — последний глобально.
  */
 app.get('/api/current', (req, res) => {
-  const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
-  const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
-
-  let pair = null;
-  if (locomotiveType && locomotiveId) {
-    pair = currentStore.byComposite.get(`${locomotiveType}:${locomotiveId}`) ?? null;
-  } else if (locomotiveType) {
-    pair = currentStore.byType.get(locomotiveType) ?? null;
-  } else if (locomotiveId) {
-    pair = currentStore.byLocomotiveId.get(locomotiveId) ?? null;
-  } else {
-    pair = currentStore.lastOverall;
-  }
-
+  const pair = getCurrentEntry(req.query);
   if (!pair) {
     return res.status(404).json({ error: 'no snapshot' });
   }
-  res.json({ snapshot: pair.snapshot, health: pair.health, alerts: pair.alerts ?? [] });
+  res.json({
+    snapshot: pair.snapshot,
+    health: pair.health,
+    alerts: Array.isArray(pair.alerts) ? pair.alerts : [],
+  });
 });
 
 /**

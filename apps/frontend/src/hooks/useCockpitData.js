@@ -113,9 +113,7 @@ export function useCockpitData(locomotiveType) {
     async function fetchCurrent() {
       try {
 
-        const res = await fetch(
-          `${API_BASE}/api/current?locomotiveType=${locomotiveType}`
-        );
+        const res = await fetch(`${API_BASE}/api/current?${params.toString()}`);
         if (!res.ok) return; // 404 — нет данных, просто ждём сокет
 
         const json = await res.json();
