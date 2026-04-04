@@ -29,6 +29,8 @@ loadEnv();
 const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000';
 const INTERVAL_MS = Number(process.env.SIM_INTERVAL_MS) || 1000;
 const TYPE = (process.env.LOCOMOTIVE_TYPE || 'KZ8A').toUpperCase();
+/** `critical` — периодически шлёт экстремальную телеметрию (критические алерты rule engine). */
+const SCENARIO = (process.env.SIM_SCENARIO || '').toLowerCase();
 
 const BACKEND_WAIT_TIMEOUT_MS = 10000;
 
@@ -96,7 +98,7 @@ function sampleTelemetry() {
           signalQualityPct: 99,
         };
 
-  return {
+  const normal = {
     ...base,
     timestamp: new Date(t).toISOString(),
     lat: 51.12 + tick * 1e-5,
@@ -104,6 +106,23 @@ function sampleTelemetry() {
     routeId: 'route-demo-1',
     speedLimitKmh: 80,
   };
+
+  if (SCENARIO === 'critical' && tick % 35 === 0) {
+    return {
+      ...normal,
+      engineTempC: 105,
+      oilTempC: 102,
+      brakePressureBar: 3.6,
+      speedKmh: 92,
+      speedLimitKmh: 80,
+      tractionCurrentA: TYPE === 'TE33A' ? 540 : 720,
+      lineVoltageV: TYPE === 'KZ8A' ? 25000 : undefined,
+      signalQualityPct: 62,
+      faultCodeCount: 4,
+    };
+  }
+
+  return normal;
 }
 
 async function sendOnce() {
@@ -120,7 +139,10 @@ async function sendOnce() {
 }
 
 await waitForBackend();
-console.log(`✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE}`);
+console.log(
+  `✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE}` +
+    (SCENARIO === 'critical' ? ' scenario=critical' : '')
+);
 function logIngestError(err) {
   const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err);
   console.log(`❌ ingest error: ${msg}`);

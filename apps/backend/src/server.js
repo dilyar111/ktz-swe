@@ -6,6 +6,8 @@ const express = require('express');
 const cors = require('cors');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
+const { computeHealthForClient } = require('./health');
+const { evaluateAlerts } = require('./alerts');
 
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
@@ -20,6 +22,34 @@ const server = http.createServer(app);
 let io = null;
 
 const history = new HistoryBuffer({ maxMs: 15 * 60 * 1000 });
+
+/** Состояние для дельт (тормоза, ток, коды) — ключ locomotiveType:locomotiveId */
+const telemetryState = new Map();
+
+/** Последний snapshot + health + alerts для быстрого REST и демо без ожидания WebSocket */
+const currentStore = {
+  /** @type {{ snapshot: object, health: object, alerts: object[] } | null} */
+  lastOverall: null,
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
+  byComposite: new Map(),
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
+  byType: new Map(),
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
+  byLocomotiveId: new Map(),
+};
+
+/**
+ * @param {object} snapshot
+ * @param {object} health
+ * @param {object[]} alerts
+ */
+function rememberCurrent(snapshot, health, alerts) {
+  const pair = { snapshot, health, alerts };
+  currentStore.lastOverall = pair;
+  currentStore.byComposite.set(`${snapshot.locomotiveType}:${snapshot.locomotiveId}`, pair);
+  currentStore.byType.set(snapshot.locomotiveType, pair);
+  currentStore.byLocomotiveId.set(snapshot.locomotiveId, pair);
+}
 
 app.use(
   cors({
@@ -93,19 +123,83 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   history.push(ts, snapshot);
 
-  const health = computeHealthStub(snapshot);
+  const compositeKey = `${locomotiveType}:${locomotiveId}`;
+  const prevState = telemetryState.get(compositeKey) ?? null;
+  const { alerts, nextState } = evaluateAlerts(snapshot, prevState);
+  telemetryState.set(compositeKey, nextState);
 
-  emitToAll(io, 'telemetry:update', { snapshot, health });
+  const health = computeHealthForClient(snapshot);
+  rememberCurrent(snapshot, health);
+
+  const alertsPayload = {
+    locomotiveId,
+    locomotiveType,
+    alerts,
+    timestamp: snapshot.timestamp,
+  };
+
+  emitToAll(io, 'telemetry:update', { snapshot, health, alerts });
+  emitToAll(io, 'alerts:update', alertsPayload);
   emitToAll(io, 'health:update', health);
 
-  res.status(202).json({ accepted: true, health });
+  res.status(202).json({ accepted: true, health, alerts });
+});
+
+/**
+ * Текущий snapshot (после ingest симулятора данные всегда актуальны).
+ * Query: locomotiveType, locomotiveId — можно вместе или по отдельности; без query — последний глобально.
+ */
+app.get('/api/current', (req, res) => {
+  const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+
+  let pair = null;
+  if (locomotiveType && locomotiveId) {
+    pair = currentStore.byComposite.get(`${locomotiveType}:${locomotiveId}`) ?? null;
+  } else if (locomotiveType) {
+    pair = currentStore.byType.get(locomotiveType) ?? null;
+  } else if (locomotiveId) {
+    pair = currentStore.byLocomotiveId.get(locomotiveId) ?? null;
+  } else {
+    pair = currentStore.lastOverall;
+  }
+
+  if (!pair) {
+    return res.status(404).json({ error: 'no snapshot' });
+  }
+  res.json({ snapshot: pair.snapshot, health: pair.health, alerts: pair.alerts ?? [] });
 });
 
 app.get('/api/history', (req, res) => {
   const from = req.query.from ? Number(req.query.from) : Date.now() - 15 * 60 * 1000;
   const to = req.query.to ? Number(req.query.to) : Date.now();
-  const rows = history.getRange(from, to);
-  res.json({ from, to, count: rows.length, entries: rows });
+  const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+  const limit = req.query.limit ? Number(req.query.limit) : 0;
+
+  let rows = history.getRange(from, to);
+
+  if (locomotiveType) {
+    rows = rows.filter((r) => r.payload && r.payload.locomotiveType === locomotiveType);
+  }
+
+  if (locomotiveId) {
+    rows = rows.filter((r) => r.payload && r.payload.locomotiveId === locomotiveId);
+  }
+
+  if (limit > 0) {
+    rows = rows.slice(0, limit);
+  }
+
+  res.json({
+    from,
+    to,
+    count: rows.length,
+    locomotiveType: locomotiveType || undefined,
+    locomotiveId: locomotiveId || undefined,
+    limit: limit || undefined,
+    entries: rows,
+  });
 });
 
 io = initSocket(server, CLIENT_URL);
