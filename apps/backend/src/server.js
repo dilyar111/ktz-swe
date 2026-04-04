@@ -16,6 +16,8 @@ const { buildIncidentReport, reportToCsv } = require('./report/reportBuilder');
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
+const { getSettings, updateSettings } = require('./settingsStore');
+const { computeRouteContext } = require('./routeContext');
 
 const openApiDocument = require('./openapi/openapi.json');
 
@@ -90,6 +92,15 @@ app.get('/health', (_req, res) => {
 
 app.get('/api/profiles', (_req, res) => {
   res.json({ profiles: getAllProfiles() });
+});
+
+app.get('/api/settings', (_req, res) => {
+  res.json(getSettings());
+});
+
+app.patch('/api/settings', (req, res) => {
+  const current = updateSettings(req.body);
+  res.json(current);
 });
 
 // один профиль по типу
