@@ -4,6 +4,7 @@ require('dotenv').config();
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
@@ -14,6 +15,8 @@ const { buildIncidentReport, reportToCsv } = require('./report/reportBuilder');
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
+
+const openApiDocument = require('./openapi/openapi.json');
 
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -58,6 +61,21 @@ app.use(
   })
 );
 app.use(express.json({ limit: '512kb' }));
+
+/** HK-017 — OpenAPI 3 spec (machine-readable) */
+app.get('/openapi.json', (_req, res) => {
+  res.json(openApiDocument);
+});
+
+/** HK-017 — Swagger UI */
+app.use(
+  '/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(openApiDocument, {
+    customSiteTitle: 'KTZ Digital Twin API',
+    customCss: '.swagger-ui .topbar { display: none }',
+  })
+);
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -383,5 +401,6 @@ async function printSystemReadyBanner() {
 server.listen(PORT, () => {
   console.log(`✅ KTZ API: http://localhost:${PORT}`);
   console.log(`   Health:  http://localhost:${PORT}/health`);
+  console.log(`   OpenAPI: http://localhost:${PORT}/docs`);
   void printSystemReadyBanner();
 });
