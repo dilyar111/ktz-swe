@@ -1,0 +1,877 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "KTZ Locomotive Digital Twin API",
+    "description": "REST API for telemetry ingest, history, health index (HK-004), alerts, scenarios, and incident reports. Real-time updates use **Socket.IO** on the same host (not described as REST paths): `telemetry:update`, `alerts:update`, `health:update`, `telemetry:throughput`.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "KTZ hackathon — ktz-digital-twin"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local backend (default PORT)"
+    }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Liveness" },
+    { "name": "Telemetry", "description": "Ingest (simulator / integrations)" },
+    { "name": "Current", "description": "Last snapshot + health + alerts" },
+    { "name": "History", "description": "Ring buffer time range" },
+    { "name": "Profiles", "description": "Locomotive profile metadata" },
+    { "name": "Alerts", "description": "Active alerts and acknowledgements" },
+    { "name": "Scenario", "description": "Demo scenario + locomotive type (in-memory)" },
+    { "name": "Report", "description": "HK-013 incident / replay window export" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Liveness probe",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthLiveResponse" },
+                "example": {
+                  "status": "ok",
+                  "service": "ktz-api",
+                  "uptimeSec": 42,
+                  "at": "2026-04-05T12:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/telemetry/ingest": {
+      "post": {
+        "tags": ["Telemetry"],
+        "summary": "Ingest telemetry snapshot",
+        "description": "Accepts a JSON body; `timestamp` optional (ISO). Server sets `receivedAt`, computes HK-004 health, evaluates alerts, updates history and WebSocket clients. Returns `202` with health and active alerts.",
+        "operationId": "postTelemetryIngest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TelemetryIngestBody" },
+              "examples": {
+                "kz8a": {
+                  "summary": "KZ8A (electric) — simulator-shaped fields",
+                  "value": {
+                    "locomotiveType": "KZ8A",
+                    "locomotiveId": "KZ8A-DEMO-01",
+                    "speedKmh": 52.3,
+                    "engineTempC": 65.2,
+                    "oilTempC": 60.1,
+                    "brakePressureBar": 5.0,
+                    "tractionCurrentA": 420,
+                    "lineVoltageV": 25000,
+                    "faultCodeCount": 0,
+                    "signalQualityPct": 99,
+                    "timestamp": "2026-04-05T12:00:00.000Z"
+                  }
+                },
+                "te33a": {
+                  "summary": "TE33A (diesel) — simulator-shaped fields",
+                  "value": {
+                    "locomotiveType": "TE33A",
+                    "locomotiveId": "TE33A-DEMO-01",
+                    "speedKmh": 45.0,
+                    "engineTempC": 72.0,
+                    "oilTempC": 68.0,
+                    "brakePressureBar": 4.8,
+                    "fuelLevelPct": 62.0,
+                    "tractionCurrentA": 280,
+                    "batteryVoltageV": 27.5,
+                    "faultCodeCount": 0,
+                    "signalQualityPct": 97,
+                    "timestamp": "2026-04-05T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted — snapshot stored and broadcast",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IngestAcceptedResponse" },
+                "example": {
+                  "accepted": true,
+                  "health": {
+                    "total_score": 92,
+                    "class": "B",
+                    "status": "normal",
+                    "profile": "KZ8A",
+                    "score": 92,
+                    "locomotiveType": "KZ8A"
+                  },
+                  "alerts": []
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/current": {
+      "get": {
+        "tags": ["Current"],
+        "summary": "Current snapshot from store",
+        "description": "Returns last ingested snapshot for the locomotive (or global last). Query filters optional; omit both for last overall.",
+        "operationId": "getCurrent",
+        "parameters": [
+          {
+            "name": "locomotiveType",
+            "in": "query",
+            "schema": { "type": "string", "example": "KZ8A" },
+            "description": "Filter by type (e.g. KZ8A)"
+          },
+          {
+            "name": "locomotiveId",
+            "in": "query",
+            "schema": { "type": "string", "example": "KZ8A-DEMO-01" },
+            "description": "Filter by id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot + health + alerts",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CurrentResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "No snapshot in store yet",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorBody" },
+                "example": { "error": "no snapshot" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history": {
+      "get": {
+        "tags": ["History"],
+        "summary": "History time range",
+        "description": "Ring buffer (default last 15 min of retained data). `limit` takes the N most recent points after filters; `order=asc` returns oldest→newest for charts.",
+        "operationId": "getHistory",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": { "type": "number", "example": 1710000000000 },
+            "description": "Window start (epoch ms). Default: now − 15 min."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": { "type": "number", "example": 1710000900000 },
+            "description": "Window end (epoch ms). Default: now."
+          },
+          {
+            "name": "locomotiveType",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "locomotiveId",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1 },
+            "description": "Max N most recent points (after filters). Default: all in window."
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["asc", "desc", "chronological"] },
+            "description": "`asc` or `chronological` = oldest first. Default: newest first (`desc`)."
+          },
+          {
+            "name": "includeHealth",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["1", "0", "true", "false"] },
+            "description": "If true, each entry includes computed HK-004 health for that payload."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Entries and window metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HistoryResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profiles": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "List locomotive profiles",
+        "operationId": "getProfiles",
+        "responses": {
+          "200": {
+            "description": "Profile summaries",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfilesListResponse" },
+                "example": {
+                  "profiles": [
+                    {
+                      "id": "KZ8A",
+                      "name": "KZ8A",
+                      "type": "electric",
+                      "description": "Электрический грузовой локомотив, 25 кВ / 50 Гц",
+                      "subsystems": ["traction", "brakes", "thermal", "electrical", "signaling"]
+                    },
+                    {
+                      "id": "TE33A",
+                      "name": "TE33A",
+                      "type": "diesel",
+                      "description": "Тепловоз",
+                      "subsystems": ["traction", "brakes", "thermal", "electrical", "signaling"]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profiles/{type}": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Profile by type",
+        "operationId": "getProfileByType",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "KZ8A" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full profile (fields, thresholds, weights, recommendations)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileDetailWrapper" }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown type",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorBody" },
+                "example": { "error": "Profile not found" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts": {
+      "get": {
+        "tags": ["Alerts"],
+        "summary": "Active alerts",
+        "description": "With both `locomotiveType` and `locomotiveId`, returns alerts for that locomotive; otherwise filters matching stores.",
+        "operationId": "getAlerts",
+        "parameters": [
+          {
+            "name": "locomotiveType",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "locomotiveId",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of active alerts",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AlertsListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts/{id}/ack": {
+      "post": {
+        "tags": ["Alerts"],
+        "summary": "Acknowledge alert by id",
+        "operationId": "postAlertAck",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid", "example": "f7c0e1bd-1970-48fe-ae1f-dec7965993f0" },
+            "description": "Alert `id` (stable UUID assigned by server)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ack recorded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AckOkResponse" },
+                "example": { "ok": true }
+              }
+            }
+          },
+          "404": {
+            "description": "No alert with that id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorBody" },
+                "example": { "error": "Alert not found" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario": {
+      "get": {
+        "tags": ["Scenario"],
+        "summary": "Current demo scenario and locomotive type",
+        "operationId": "getScenario",
+        "responses": {
+          "200": {
+            "description": "Scenario state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ScenarioGetResponse" },
+                "example": {
+                  "scenario": "normal",
+                  "locomotiveType": "KZ8A",
+                  "valid": ["normal", "critical", "highload", "brake_drop", "signal_loss"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Scenario"],
+        "summary": "Set scenario and/or locomotive type",
+        "operationId": "postScenario",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ScenarioPostBody" },
+              "example": {
+                "scenario": "normal",
+                "locomotiveType": "KZ8A"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ScenarioPostResponse" },
+                "example": {
+                  "ok": true,
+                  "scenario": "normal",
+                  "locomotiveType": "KZ8A"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestScenario"
+          }
+        }
+      }
+    },
+    "/api/report": {
+      "get": {
+        "tags": ["Report"],
+        "summary": "Incident / replay window report (HK-013)",
+        "description": "Builds report from in-memory history + alert store. `format=csv` returns a spreadsheet-friendly file with UTF-8 BOM.",
+        "operationId": "getReport",
+        "parameters": [
+          {
+            "name": "locomotiveType",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "KZ8A" }
+          },
+          {
+            "name": "locomotiveId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "KZ8A-DEMO-01" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "number", "example": 1710000000000 },
+            "description": "Window start (epoch ms)"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "number", "example": 1710000900000 },
+            "description": "Window end (epoch ms)"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["json", "csv"] },
+            "description": "Default `json`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON report or CSV text",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IncidentReportResponse" }
+              },
+              "text/csv": {
+                "schema": { "type": "string", "example": "section,key,value\r\nmeta,generatedAt,...\r\n" }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid input",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorBody" },
+            "example": { "error": "invalid timestamp" }
+          }
+        }
+      },
+      "BadRequestScenario": {
+        "description": "Invalid scenario or type",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ScenarioErrorBody" },
+            "example": { "ok": false, "error": "invalid scenario (allowed: normal, critical, ...)" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "HealthLiveResponse": {
+        "type": "object",
+        "required": ["status", "service", "uptimeSec", "at"],
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "service": { "type": "string", "example": "ktz-api" },
+          "uptimeSec": { "type": "number" },
+          "at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TelemetryIngestBody": {
+        "type": "object",
+        "description": "Raw telemetry; extra fields are passed through into the snapshot. See examples for KZ8A vs TE33A.",
+        "properties": {
+          "locomotiveType": { "type": "string", "enum": ["KZ8A", "TE33A"] },
+          "locomotiveId": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "speedKmh": { "type": "number" },
+          "engineTempC": { "type": "number" },
+          "oilTempC": { "type": "number" },
+          "brakePressureBar": { "type": "number" },
+          "tractionCurrentA": { "type": "number" },
+          "lineVoltageV": { "type": "number", "description": "KZ8A — contact line voltage (V)" },
+          "batteryVoltageV": { "type": "number", "description": "TE33A — battery (V)" },
+          "fuelLevelPct": { "type": "number", "description": "TE33A" },
+          "faultCodeCount": { "type": "integer" },
+          "signalQualityPct": { "type": "number" }
+        }
+      },
+      "HealthForClient": {
+        "type": "object",
+        "description": "HK-004 explainable health + legacy UI fields",
+        "properties": {
+          "total_score": { "type": "number", "example": 92 },
+          "score": { "type": "number", "description": "Alias of total_score for cockpit" },
+          "class": { "type": "string", "example": "B" },
+          "status": { "type": "string", "enum": ["normal", "warning", "critical"] },
+          "profile": { "type": "string", "example": "KZ8A" },
+          "locomotiveType": { "type": "string" },
+          "weights": { "type": "object", "additionalProperties": { "type": "number" } },
+          "subsystems": { "type": "object", "additionalProperties": true },
+          "top_contributors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "impact": { "type": "number" },
+                "reason": { "type": "string" },
+                "subsystem": { "type": "string" }
+              }
+            }
+          },
+          "contributors": {
+            "type": "array",
+            "description": "UI-oriented list mapped from top contributors",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": { "type": "string" },
+                "label": { "type": "string" },
+                "penalty": { "type": "number" },
+                "reason": { "type": "string" },
+                "subsystem": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "Alert": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+          "subsystem": { "type": "string" },
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "recommendation": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "locomotiveType": { "type": "string" },
+          "acked": { "type": "boolean" },
+          "ackedAt": { "type": "string", "nullable": true }
+        }
+      },
+      "IngestAcceptedResponse": {
+        "type": "object",
+        "required": ["accepted", "health", "alerts"],
+        "properties": {
+          "accepted": { "type": "boolean", "example": true },
+          "health": { "$ref": "#/components/schemas/HealthForClient" },
+          "alerts": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Alert" }
+          }
+        }
+      },
+      "CurrentResponse": {
+        "type": "object",
+        "required": ["snapshot", "health", "alerts"],
+        "properties": {
+          "snapshot": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Last ingested payload (includes timestamp, receivedAt, locomotiveId, locomotiveType, …)"
+          },
+          "health": { "$ref": "#/components/schemas/HealthForClient" },
+          "alerts": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Alert" }
+          }
+        },
+        "example": {
+          "snapshot": {
+            "locomotiveType": "KZ8A",
+            "locomotiveId": "KZ8A-DEMO-01",
+            "speedKmh": 52,
+            "tractionCurrentA": 400,
+            "brakePressureBar": 5.0,
+            "timestamp": "2026-04-05T12:00:00.000Z",
+            "receivedAt": "2026-04-05T12:00:00.001Z"
+          },
+          "health": {
+            "total_score": 90,
+            "class": "A",
+            "status": "normal",
+            "profile": "KZ8A",
+            "score": 90
+          },
+          "alerts": []
+        }
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "properties": {
+          "ts": { "type": "number", "description": "Buffer time (epoch ms)" },
+          "payload": { "type": "object", "additionalProperties": true },
+          "health": { "$ref": "#/components/schemas/HealthForClient" }
+        }
+      },
+      "HistoryResponse": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "number" },
+          "to": { "type": "number" },
+          "count": { "type": "integer" },
+          "locomotiveType": { "type": "string" },
+          "locomotiveId": { "type": "string" },
+          "limit": { "type": "integer" },
+          "order": { "type": "string", "enum": ["asc", "desc"] },
+          "includeHealth": { "type": "boolean" },
+          "entries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/HistoryEntry" }
+          }
+        },
+        "example": {
+          "from": 1710000000000,
+          "to": 1710000900000,
+          "count": 2,
+          "locomotiveType": "KZ8A",
+          "locomotiveId": "KZ8A-DEMO-01",
+          "order": "asc",
+          "includeHealth": true,
+          "entries": [
+            {
+              "ts": 1710000001000,
+              "payload": {
+                "locomotiveType": "KZ8A",
+                "locomotiveId": "KZ8A-DEMO-01",
+                "speedKmh": 50
+              },
+              "health": { "total_score": 88, "class": "B", "status": "normal", "score": 88 }
+            }
+          ]
+        }
+      },
+      "ProfilesListResponse": {
+        "type": "object",
+        "required": ["profiles"],
+        "properties": {
+          "profiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "description": { "type": "string" },
+                "subsystems": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      },
+      "ProfileDetailWrapper": {
+        "type": "object",
+        "required": ["profile"],
+        "properties": {
+          "profile": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Includes `fields`, `thresholds`, `healthWeights`, `recommendations`"
+          }
+        }
+      },
+      "AlertsListResponse": {
+        "type": "object",
+        "required": ["alerts"],
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Alert" }
+          }
+        },
+        "example": {
+          "alerts": [
+            {
+              "id": "f7c0e1bd-1970-48fe-ae1f-dec7965993f0",
+              "code": "CURRENT_ANOMALY",
+              "severity": "warning",
+              "subsystem": "electrical",
+              "title": "Несоответствие тока и скорости",
+              "message": "При скорости 50 км/ч ток тяги аномально низкий.",
+              "recommendation": "Проверьте цепи управления тягой.",
+              "timestamp": "2026-04-05T12:00:00.000Z",
+              "locomotiveType": "KZ8A",
+              "acked": false,
+              "ackedAt": null
+            }
+          ]
+        }
+      },
+      "AckOkResponse": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": {
+          "ok": { "type": "boolean", "enum": [true] }
+        }
+      },
+      "ScenarioGetResponse": {
+        "type": "object",
+        "required": ["scenario", "locomotiveType", "valid"],
+        "properties": {
+          "scenario": { "type": "string" },
+          "locomotiveType": { "type": "string", "enum": ["KZ8A", "TE33A"] },
+          "valid": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "ScenarioPostBody": {
+        "type": "object",
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "description": "Optional — `normal` | `critical` | `highload` | `brake_drop` | `signal_loss`"
+          },
+          "locomotiveType": {
+            "type": "string",
+            "enum": ["KZ8A", "TE33A"],
+            "description": "Optional — switch simulator/UI profile"
+          }
+        }
+      },
+      "ScenarioPostResponse": {
+        "type": "object",
+        "required": ["ok", "scenario", "locomotiveType"],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "scenario": { "type": "string" },
+          "locomotiveType": { "type": "string" }
+        }
+      },
+      "ScenarioErrorBody": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "enum": [false] },
+          "error": { "type": "string" }
+        }
+      },
+      "IncidentReportResponse": {
+        "type": "object",
+        "description": "Returned when `format` is omitted or `json`",
+        "properties": {
+          "meta": {
+            "type": "object",
+            "properties": {
+              "generatedAt": { "type": "string", "format": "date-time" },
+              "locomotiveType": { "type": "string" },
+              "locomotiveId": { "type": "string" },
+              "from": { "type": "string", "format": "date-time" },
+              "to": { "type": "string", "format": "date-time" },
+              "sampleCount": { "type": "integer" }
+            }
+          },
+          "healthSummary": {
+            "type": "object",
+            "properties": {
+              "min": { "type": "number", "nullable": true },
+              "max": { "type": "number", "nullable": true },
+              "avg": { "type": "number", "nullable": true },
+              "lastScore": { "type": "number", "nullable": true },
+              "class": { "type": "string", "nullable": true },
+              "samples": { "type": "integer" }
+            }
+          },
+          "activeAlertsSnapshot": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Alert" }
+          },
+          "alertsInWindow": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Alert" }
+          },
+          "incidentMarkers": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "topContributors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "impact": { "type": "number" },
+                "subsystem": { "type": "string" },
+                "reason": { "type": "string" }
+              }
+            }
+          },
+          "recommendationsSummary": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "example": {
+          "meta": {
+            "generatedAt": "2026-04-05T12:00:00.000Z",
+            "locomotiveType": "KZ8A",
+            "locomotiveId": "KZ8A-DEMO-01",
+            "from": "2026-04-05T11:45:00.000Z",
+            "to": "2026-04-05T12:00:00.000Z",
+            "sampleCount": 120
+          },
+          "healthSummary": {
+            "min": 72,
+            "max": 98,
+            "avg": 86.5,
+            "lastScore": 92,
+            "class": "B",
+            "samples": 120
+          },
+          "activeAlertsSnapshot": [],
+          "alertsInWindow": [],
+          "incidentMarkers": [],
+          "topContributors": [
+            {
+              "name": "Low brake pressure",
+              "impact": 12,
+              "subsystem": "brakes",
+              "reason": "Brake pressure below warn threshold"
+            }
+          ],
+          "recommendationsSummary": ["Проверьте тормозную магистраль."]
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  }
+}
