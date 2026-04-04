@@ -16,6 +16,7 @@ const { buildIncidentReport, reportToCsv } = require('./report/reportBuilder');
 const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
 const { getSettings, updateSettings } = require('./settingsStore');
+const { computeRouteContext } = require('./routeContext');
 
 const openApiDocument = require('./openapi/openapi.json');
 
