@@ -143,7 +143,7 @@ async function run() {
 
   const types = ['KZ8A', 'TE33A'];
   const scenarios = ['normal', 'warning_overheat', 'critical', 'brake_drop', 'signal_loss', 'highload'];
-  const TICKS_PER = 300; // 300 data points per scenario per locomotive = approx 5 mins of data each
+  const TICKS_PER = 1000; // 1000 data points per scenario per locomotive = approx 16 mins of data each
 
   let totalRows = 0;
 
