@@ -145,19 +145,98 @@ server.listen(PORT, () => {
  * Заглушка health
  */
 function computeHealthStub(s) {
-  const speed = Number(s.speedKmh ?? s.speed ?? 0);
-  const temp = Number(s.engineTempC ?? s.oilTempC ?? 70);
-  const penaltyTemp = Math.max(0, temp - 85) * 2;
-  const penaltySpeed = speed > 100 ? (speed - 100) * 0.5 : 0;
-  const score = Math.max(0, Math.min(100, 100 - penaltyTemp - penaltySpeed));
+  const profile = getProfile(s.locomotiveType);
+  const thresholds = profile ? profile.thresholds : {};
+  const weights = profile ? profile.healthWeights : {};
+  const recommendations = profile ? profile.recommendations : {};
+
   const contributors = [];
-  if (penaltyTemp > 0) contributors.push({ key: 'thermal', label: 'Temperature', penalty: Math.round(penaltyTemp) });
-  if (penaltySpeed > 0) contributors.push({ key: 'speed', label: 'Overspeed', penalty: Math.round(penaltySpeed) });
+  let totalPenalty = 0;
+
+  // --- Thermal / diesel penalties ---
+  const temp = Number(s.oilTempC ?? s.engineTempC ?? s.oil_temp ?? s.inverter_temp ?? 70);
+  const tempKey = s.locomotiveType === 'TE33A' ? 'oil_temp' : 'inverter_temp';
+  const tempThresh = thresholds[tempKey] ?? { warn: 85, crit: 100 };
+  if (temp >= tempThresh.crit) {
+    const penalty = 25;
+    totalPenalty += penalty;
+    contributors.push({ key: 'thermal', label: 'Temperature critical', penalty });
+  } else if (temp >= tempThresh.warn) {
+    const penalty = 12;
+    totalPenalty += penalty;
+    contributors.push({ key: 'thermal', label: 'Temperature warning', penalty });
+  }
+
+  // --- Brake pressure penalties ---
+  const brake = Number(s.brakePressure ?? s.brake_pressure ?? 999);
+  const brakeThresh = thresholds['brake_pressure'] ?? { warnLow: 350, critLow: 300 };
+  if (brake < brakeThresh.critLow) {
+    const penalty = 25;
+    totalPenalty += penalty;
+    contributors.push({ key: 'brakes', label: 'Brake pressure critical', penalty });
+  } else if (brake < brakeThresh.warnLow) {
+    const penalty = 12;
+    totalPenalty += penalty;
+    contributors.push({ key: 'brakes', label: 'Brake pressure low', penalty });
+  }
+
+  // --- Speed penalties ---
+  const speed = Number(s.speedKmh ?? s.speed ?? 0);
+  const speedThresh = thresholds['speed'] ?? { warn: 100, crit: 120 };
+  if (speed >= speedThresh.crit) {
+    const penalty = 20;
+    totalPenalty += penalty;
+    contributors.push({ key: 'traction', label: 'Overspeed critical', penalty });
+  } else if (speed >= speedThresh.warn) {
+    const penalty = 8;
+    totalPenalty += penalty;
+    contributors.push({ key: 'traction', label: 'Overspeed warning', penalty });
+  }
+
+  // --- Fault codes ---
+  const faults = Number(s.faultCodeCount ?? s.fault_count ?? 0);
+  const faultThresh = thresholds['fault_count'] ?? { warn: 1, crit: 3 };
+  if (faults >= faultThresh.crit) {
+    const penalty = 20;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Multiple fault codes', penalty });
+  } else if (faults >= faultThresh.warn) {
+    const penalty = 8;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Fault code active', penalty });
+  }
+
+  // --- Signal quality (TE33A only) ---
+  const signal = Number(s.signalQuality ?? s.signal_quality ?? 100);
+  const sigThresh = thresholds['signal_quality'] ?? { warnLow: 60, critLow: 30 };
+  if (signal < sigThresh.critLow) {
+    const penalty = 15;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Signal loss critical', penalty });
+  } else if (signal < sigThresh.warnLow) {
+    const penalty = 7;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Signal quality low', penalty });
+  }
+
+  const score = Math.max(0, Math.min(100, 100 - totalPenalty));
+
+  // --- Recommendation ---
+  let recommendation = recommendations.default ?? 'Продолжать наблюдение';
+  if (contributors.length > 0) {
+    const top = contributors[0].key;
+    const isCrit = score < 50;
+    const recKey = `${top}_${isCrit ? 'crit' : 'warn'}`;
+    recommendation = recommendations[recKey] ?? recommendations.default ?? recommendation;
+  }
+
   return {
     score: Math.round(score),
     class: score >= 80 ? 'A' : score >= 50 ? 'C' : 'E',
     status: score >= 80 ? 'normal' : score >= 50 ? 'warning' : 'critical',
-    contributors,
+    contributors: contributors.sort((a, b) => b.penalty - a.penalty).slice(0, 5),
+    recommendation,
     locomotiveType: s.locomotiveType,
+    profileUsed: profile ? profile.id : 'fallback',
   };
 }
