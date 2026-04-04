@@ -5,6 +5,7 @@ import { MetricCards } from '@/components/cockpit/MetricCards';
 import { DigitalTwin } from '@/components/cockpit/DigitalTwin';
 import { RecommendationsPanel } from '@/components/cockpit/RecommendationsPanel';
 import HealthBreakdownWidget from '@/components/HealthBreakdownWidget';
+import RiskScoreWidget from '@/components/RiskScoreWidget';
 import RouteContextWidget from '@/components/RouteContextWidget';
 import ConnectionStatusBadge from '@/components/ConnectionStatusBadge';
 import { cn } from '@/lib/utils';
@@ -235,6 +236,10 @@ export default function Cockpit() {
 
                 <div className="mt-6 w-full max-w-lg space-y-4">
                   <HealthBreakdownWidget health={data.raw?.health} />
+                  <RiskScoreWidget
+                    locoType={locomotiveType}
+                    locomotiveId={data.raw?.snapshot?.locomotiveId}
+                  />
                   <RouteContextWidget
                     routeContext={data.routeContext}
                     speedKmh={data.metrics?.speed}
