@@ -80,6 +80,8 @@ Invoke-RestMethod http://localhost:5000/health
 |------|--------|
 | Monorepo + `npm run dev` | готово |
 | Backend ingest, `/health`, `/api/history`, ring buffer | готово |
+
+**`/api/history` (HK-028):** default response order is **newest → oldest** (`order=desc`). Query `limit=N` returns the **N most recent** points in that window (after `from` / `to` / filters). Use **`order=asc`** to get the same N points **oldest → newest** (replay / charts).
 | WebSocket `telemetry:update` `{ snapshot, health }` | готово |
 | Симулятор 1 Гц, `LOCOMOTIVE_TYPE`, ожидание API при старте | готово |
 | Cockpit UI (Tailwind, профили KZ8A/TE33A) | готово, данные только если тип потока = выбранный профиль |
