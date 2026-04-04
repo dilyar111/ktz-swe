@@ -57,6 +57,20 @@ rm -rf node_modules apps/*/node_modules apps/frontend/dist
 
 На Windows аналог — удалить эти каталоги в проводнике или через `Remove-Item -Recurse`.
 
+## Тесты правил (HK-022)
+
+Юнит-тесты на **движок здоровья (HK-004)** и **оценку алертов** (`node:test`, без отдельного раннера):
+
+```bash
+npm test
+```
+
+Или только backend:
+
+```bash
+npm run test -w @ktz/backend
+```
+
 ## Debug
 
 Проверить, что API поднялся:
@@ -104,6 +118,7 @@ curl -sS 'http://localhost:5000/api/report?locomotiveType=KZ8A&locomotiveId=KZ8A
 | Cockpit UI (Tailwind, профили KZ8A/TE33A) | готово, данные только если тип потока = выбранный профиль |
 | Replay UI, отчёт HK-013 (`/api/report`, `/report`) | готово |
 | OpenAPI 3 + Swagger UI (`/docs`, `/openapi.json`, HK-017) | готово |
+| Правила health + alerts (`npm test`, HK-022) | готово |
 | Алерты (центр), OpenAPI, PostgreSQL | **не заявлены как работающие** — следующие задачи |
 
 ## Структура
