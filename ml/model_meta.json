@@ -1,0 +1,54 @@
+{
+  "feature_names": [
+    "locomotiveType",
+    "speedKmh",
+    "speedLimitKmh",
+    "engineTempC",
+    "oilTempC",
+    "brakePressureBar",
+    "fuelLevelPct",
+    "tractionCurrentA",
+    "batteryVoltageV",
+    "lineVoltageV",
+    "faultCodeCount",
+    "signalQualityPct",
+    "vibrationMmS",
+    "healthScore"
+  ],
+  "numeric_columns": [
+    "speedKmh",
+    "speedLimitKmh",
+    "engineTempC",
+    "oilTempC",
+    "brakePressureBar",
+    "fuelLevelPct",
+    "tractionCurrentA",
+    "batteryVoltageV",
+    "lineVoltageV",
+    "faultCodeCount",
+    "signalQualityPct",
+    "vibrationMmS",
+    "healthScore"
+  ],
+  "medians": {
+    "speedKmh": 50.6155,
+    "speedLimitKmh": 80.0,
+    "engineTempC": 82.62,
+    "oilTempC": 70.8,
+    "brakePressureBar": 4.872,
+    "fuelLevelPct": 52.9995,
+    "tractionCurrentA": 387.192,
+    "batteryVoltageV": 27.595,
+    "lineVoltageV": 25062.8115,
+    "faultCodeCount": 0.0,
+    "signalQualityPct": 97.5,
+    "vibrationMmS": 5.0,
+    "healthScore": 94.0
+  },
+  "label_encoder_classes": [
+    "KZ8A",
+    "TE33A"
+  ],
+  "model_name": "RandomForest",
+  "test_accuracy": 1.0
+}

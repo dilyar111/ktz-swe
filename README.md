@@ -71,6 +71,10 @@ npm test
 npm run test -w @ktz/backend
 ```
 
+## Дополнительный ML-риск (HK-021)
+
+Индекс здоровья по правилам (HK-004) остаётся **основным**. Поверх него можно поднять **базовую модель** (Logistic Regression / Random Forest на синтетике HK-020) — см. **`ml/README.md`**: обучение `python ml/train_risk_model.py`, сервис FastAPI на порту **8001**, прокси **`GET /api/ml/risk`** в Node (`ML_RISK_URL`). В Cockpit отображается виджет **ML-риск** (опрос раз в 5 с); без ML-сервиса показывается «ML недоступен».
+
 ## Debug
 
 Проверить, что API поднялся:
@@ -119,6 +123,7 @@ curl -sS 'http://localhost:5000/api/report?locomotiveType=KZ8A&locomotiveId=KZ8A
 | Replay UI, отчёт HK-013 (`/api/report`, `/report`) | готово |
 | OpenAPI 3 + Swagger UI (`/docs`, `/openapi.json`, HK-017) | готово |
 | Правила health + alerts (`npm test`, HK-022) | готово |
+| Доп. ML-риск (`ml/`, `/api/ml/risk`, HK-021) | готово (опционально) |
 | Алерты (центр), OpenAPI, PostgreSQL | **не заявлены как работающие** — следующие задачи |
 
 ## Структура
