@@ -1,176 +1,145 @@
 # KTZ Locomotive Digital Twin
 
-Монорепозиторий для хакатона KTZ: **поток телеметрии → ingest → история → WebSocket → cockpit**.  
-Название пакета: `ktz-digital-twin`. После `git clone` папка может называться как угодно — работайте из **корня клона** (там лежат `package.json` и `apps/`).
+> Real-time locomotive health monitoring: telemetry stream → health index → explainable alerts → replayable history → OpenAPI contracts.
 
-## Quick start (clean machine)
+**Stack:** Node.js 18 · Express · Socket.IO · React + Vite · Docker Compose  
+**Monorepo:** npm workspaces (`apps/backend`, `apps/frontend`, `apps/simulator`)
 
-Требования: **Node.js 18+** и npm.
+---
 
-1. **Клонировать репозиторий** и перейти в корень:
+## Quick start
 
-   ```bash
-   git clone <repository-url>
-   cd <repository-folder>
-   ```
-
-2. **Установить зависимости** (один раз):
-
-   ```bash
-   npm install
-   ```
-
-3. **(Опционально)** скопировать переменные окружения. Без `.env` локальная схема портов уже совпадает с дефолтами (`5000` / `5173`, профиль симулятора `KZ8A`).
-
-   ```bash
-   # Windows
-   copy .env.example .env
-
-   # macOS / Linux
-   cp .env.example .env
-   ```
-
-   Vite читает `VITE_*` из **корневого** `.env` (см. `apps/frontend/vite.config.js`).
-
-4. **Запустить всё одной командой** (API + Vite + симулятор):
-
-   ```bash
-   npm run dev
-   ```
-
-5. **Открыть приложение**
-
-   - Cockpit UI: [http://localhost:5173](http://localhost:5173)
-   - Health API: [http://localhost:5000/health](http://localhost:5000/health)
-   - OpenAPI (Swagger): [http://localhost:5000/docs](http://localhost:5000/docs)
-
-После старта симулятор ждёт готовности `/health`, затем шлёт телеметрию ~1 Гц; фронт подключается по Socket.IO к `http://localhost:5000` и обновляет Cockpit в реальном времени (профиль в UI по умолчанию **KZ8A**, как у симулятора).
-
-### Очистка сгенерированных файлов
-
-Папки вроде `node_modules/`, `apps/frontend/dist/` не коммитятся (см. `.gitignore`). Удалить их можно вручную или, например:
+**Requirements:** Node.js 18+, npm 9+
 
 ```bash
-# из корня репозитория
-rm -rf node_modules apps/*/node_modules apps/frontend/dist
+# 1. Install dependencies (once)
+npm install
+
+# 2. Optional — copy env defaults (ports already match without it)
+cp .env.example .env        # macOS / Linux
+copy .env.example .env      # Windows
+
+# 3. Start everything
+npm run dev
 ```
 
-На Windows аналог — удалить эти каталоги в проводнике или через `Remove-Item -Recurse`.
+| URL | Purpose |
+|-----|---------|
+| http://localhost:5173 | Cockpit UI |
+| http://localhost:5000/health | API health check |
+| http://localhost:5000/docs | Swagger / OpenAPI UI |
+| http://localhost:5000/openapi.json | Machine-readable spec |
 
-## Тесты правил (HK-022)
+After startup the simulator sends telemetry at ~1 Hz; the frontend connects via Socket.IO and updates in real time (default profile: **KZ8A**).
 
-Юнит-тесты на **движок здоровья (HK-004)** и **оценку алертов** (`node:test`, без отдельного раннера):
+---
 
-```bash
-npm test
-```
-
-Или только backend:
-
-```bash
-npm run test -w @ktz/backend
-```
-
-## Дополнительный ML-риск (HK-021)
-
-Индекс здоровья по правилам (HK-004) остаётся **основным**. Поверх него можно поднять **базовую модель** (Logistic Regression / Random Forest на синтетике HK-020) — см. **`ml/README.md`**: обучение `python ml/train_risk_model.py`, сервис FastAPI на порту **8001**, прокси **`GET /api/ml/risk`** в Node (`ML_RISK_URL`). В Cockpit отображается виджет **ML-риск** (опрос раз в 5 с); без ML-сервиса показывается «ML недоступен».
-
-## Debug
-
-Проверить, что API поднялся:
-
-```bash
-curl http://localhost:5000/health
-```
-
-Пример ответа: `{"status":"ok","service":"ktz-api",...}`.
-
-Windows (PowerShell):
-
-```powershell
-Invoke-RestMethod http://localhost:5000/health
-```
-
-После запуска `npm run dev` в логах бэкенда появится блок **System ready** (✅ backend / frontend / simulator), когда Vite отвечает и в истории есть хотя бы одна точка телеметрии.
-
-### OpenAPI / Swagger (HK-017)
-
-После старта backend откройте **[http://localhost:5000/docs](http://localhost:5000/docs)** — Swagger UI с описанием REST API, примерами запросов/ответов и двумя примерами телеметрии (**KZ8A** / **TE33A**). Машиночитаемая спецификация: [http://localhost:5000/openapi.json](http://localhost:5000/openapi.json).
-
-## Экспорт отчёта по инциденту (HK-013)
-
-Эндпоинт **`GET /api/report`** строит отчёт за окно `[from, to]` (эпоха в миллисекундах) для пары **locomotiveType** + **locomotiveId**: сводка по индексу здоровья (HK-004), алерты в интервале, маркеры, топ вкладов с последнего снимка, рекомендации. Параметр **`format=json`** (по умолчанию) или **`format=csv`** — табличный файл с UTF-8 BOM для Excel / LibreOffice.
-
-Пример (подставьте актуальные `from` / `to`, например «сейчас − 15 мин» → «сейчас»):
-
-```bash
-curl -sS 'http://localhost:5000/api/report?locomotiveType=KZ8A&locomotiveId=KZ8A-DEMO-01&from=1710000000000&to=1710000900000&format=json' | head -c 400
-```
-
-В UI: маршрут **Reports** (`/report`) — превью сводки и кнопки экспорта JSON/CSV без смены `.env`.
-
-## Честно о текущем состоянии
-
-| Слой | Статус |
-|------|--------|
-| Monorepo + `npm run dev` | готово |
-| Backend ingest, `/health`, `/api/history`, ring buffer | готово |
-
-**`/api/history` (HK-028):** default response order is **newest → oldest** (`order=desc`). Query `limit=N` returns the **N most recent** points in that window (after `from` / `to` / filters). Use **`order=asc`** to get the same N points **oldest → newest** (replay / charts).
-| WebSocket `telemetry:update` `{ snapshot, health }` | готово |
-| Симулятор 1 Гц, `LOCOMOTIVE_TYPE`, ожидание API при старте | готово |
-| Cockpit UI (Tailwind, профили KZ8A/TE33A) | готово, данные только если тип потока = выбранный профиль |
-| Replay UI, отчёт HK-013 (`/api/report`, `/report`) | готово |
-| OpenAPI 3 + Swagger UI (`/docs`, `/openapi.json`, HK-017) | готово |
-| Правила health + alerts (`npm test`, HK-022) | готово |
-| Доп. ML-риск (`ml/`, `/api/ml/risk`, HK-021) | готово (опционально) |
-| Алерты (центр), OpenAPI, PostgreSQL | **не заявлены как работающие** — следующие задачи |
-
-## Структура
-
-- `apps/frontend` — React + Vite + Tailwind, маршруты Cockpit / заглушки
-- `apps/backend` — Express + Socket.IO
-- `apps/simulator` — POST телеметрии в API
-- `docker-compose.yml` (корень) — единственный стек Docker: backend + frontend (preview/nginx) + simulator
-
-## Сборка production-фронта
-
-```bash
-npm run build
-```
-
-Собирается workspace `@ktz/frontend` (артефакты в `apps/frontend/dist/`).
-
-## Docker (HK-018)
-
-Один канонический путь из **корня репозитория**:
+## Docker
 
 ```bash
 docker compose up --build
 ```
 
-Поднимает три сервиса:
+| Service | Description |
+|---------|-------------|
+| `backend` | API + Socket.IO — http://localhost:5000 |
+| `frontend` | nginx-served production build — http://localhost:5173 |
+| `simulator` | Telemetry generator (~1 msg/s) |
 
-| Сервис | Описание |
-|--------|----------|
-| `backend` | API + Socket.IO на [http://localhost:5000](http://localhost:5000) (`/health`, `/docs`, …) |
-| `frontend` | Собранный Vite + **nginx** на [http://localhost:5173](http://localhost:5173) (preview, не hot-reload) |
-| `simulator` | POST телеметрии ~1 Гц на API (`BACKEND_URL=http://backend:5000` внутри сети compose) |
+> For hot-reload development prefer `npm run dev`.
 
-Переменные (как в `.env.example`): **`CLIENT_URL`** — origin UI для CORS (по умолчанию `http://localhost:5173`); **`BACKEND_URL`** / **`SIM_INTERVAL_MS`** / **`LOCOMOTIVE_TYPE`** — симулятор; **`VITE_API_URL`** / **`VITE_WS_URL`** — подставляются в **сборку** фронта (для браузера на хосте остаётся `http://localhost:5000`).
+---
 
-Для разработки с hot-reload по-прежнему удобнее **`npm run dev`** на хосте.
+## Scripts
 
-## Профиль TE33A
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Backend + frontend + simulator concurrently |
+| `npm run dev:stack` | Backend + frontend only (no simulator) |
+| `npm run build` | Production frontend bundle (`apps/frontend/dist/`) |
+| `npm test` | Unit tests — health engine + alert evaluation |
 
-Для потока **TE33A** в корневом `.env` задайте `LOCOMOTIVE_TYPE=TE33A` и перезапустите `npm run dev` (или только процесс симулятора). В UI переключите профиль на TE33A.
+---
 
-## Git
+## Running tests
 
-- Ветки: `feature/HK-XXX-kratko`, `fix/...`
-- Коммиты: `feat(HK-XXX): ...`
-- Шаблоны Issues: `.github/ISSUE_TEMPLATE/`
+```bash
+npm test                          # all workspaces
+npm run test -w @ktz/backend      # backend only
+```
 
-## Мерж двух версий проекта
+---
 
-Эта кодовая база объединяет **инженерный каркас** (workspaces, ingest, history, сокет) и **продуктовый UI** из ветки digital-twin (Layout, Cockpit, промышленная тема). Старый вложенный архив `ktz-digital-twin/ktz-digital-twin` можно не копировать в git — держите его только как референс.
+## Key API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Liveness check |
+| GET | `/api/current` | Latest telemetry snapshot + health |
+| GET | `/api/history` | Paginated history (`limit`, `from`, `to`, `order`) |
+| GET | `/api/report` | Incident report — JSON or CSV (`format=json\|csv`) |
+| POST | `/api/telemetry` | Ingest a telemetry point |
+| POST | `/api/scenario` | Switch simulator scenario |
+| GET | `/docs` | Swagger UI |
+
+`/api/history` default order: **newest → oldest** (`order=desc`). Use `order=asc` for replay/charts.
+
+---
+
+## Repo structure
+
+```
+.
+├── apps/
+│   ├── backend/       Express API, Socket.IO, health engine, alerts
+│   ├── frontend/      React + Vite + Tailwind — Cockpit, Replay, Report
+│   └── simulator/     Telemetry generator (1 Hz default, ×10 highload mode)
+├── artifacts/
+│   └── datasets/      Synthetic CSV dataset (HK-020)
+├── docs/
+│   └── demo-script.md 5-minute demo + pitch checklist
+├── ml/
+│   └── hk020/         ML experiment artifacts
+├── .env.example       Environment variable reference
+├── docker-compose.yml Single-stack Docker definition
+└── package.json       Workspace root + npm scripts
+```
+
+---
+
+## Locomotive profiles
+
+| Profile | Switch |
+|---------|--------|
+| **KZ8A** (default) | `LOCOMOTIVE_TYPE=KZ8A` in `.env` |
+| **TE33A** | `LOCOMOTIVE_TYPE=TE33A` then restart |
+
+In the UI, switch the profile in the header to match the simulator stream.
+
+---
+
+## Git conventions
+
+- **Branches:** `feature/HK-XXX-short-name` · `fix/HK-XXX-...` · `chore/HK-XXX-...`
+- **Commits:** `feat|fix|chore|docs|test|refactor(HK-XXX): description`
+- **Issue/PR templates:** `.github/ISSUE_TEMPLATE/` · `.github/pull_request_template.md`
+
+---
+
+## Feature status
+
+| Layer | Status |
+|-------|--------|
+| Monorepo + `npm run dev` | ✅ ready |
+| Backend ingest, `/health`, `/api/history`, ring buffer | ✅ ready |
+| WebSocket `telemetry:update` `{ snapshot, health }` | ✅ ready |
+| Simulator 1 Hz, `LOCOMOTIVE_TYPE`, API-wait on start | ✅ ready |
+| Cockpit UI — live metrics, health ring, recommendations | ✅ ready |
+| Scenario control (normal / critical / highload) | ✅ ready |
+| Highload ×10 burst mode (`npm run highload -w @ktz/simulator`) | ✅ ready |
+| Replay UI + incident jump + range slider | ✅ ready |
+| Incident report (`/api/report`, JSON + CSV) | ✅ ready |
+| OpenAPI 3 + Swagger UI (`/docs`, `/openapi.json`) | ✅ ready |
+| Health engine + alert rule unit tests (`npm test`) | ✅ ready |
+| Synthetic dataset export (HK-020) | ✅ ready |
+| PostgreSQL persistence | 🔜 not in hackathon scope |
