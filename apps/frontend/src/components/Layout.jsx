@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, AlertTriangle, History, FileText, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ScenarioControl from '@/components/ScenarioControl';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Cockpit', icon: LayoutDashboard },
@@ -57,6 +58,10 @@ export default function Layout() {
                 TE33A
               </button>
             </div>
+          </div>
+
+          <div className="hidden lg:flex items-center border-l border-border pl-6">
+            <ScenarioControl />
           </div>
         </div>
 

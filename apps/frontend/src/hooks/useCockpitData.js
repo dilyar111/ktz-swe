@@ -38,9 +38,17 @@ function normalizeMetrics(snap, locomotiveType) {
 function buildCockpitModel(locomotiveType, snapshot, health, alerts = []) {
   if (!snapshot || snapshot.locomotiveType !== locomotiveType) return null;
   const list = Array.isArray(alerts) ? alerts : [];
+  const demoScenario =
+    snapshot.demoScenario != null
+      ? String(snapshot.demoScenario)
+      : health.demoScenario != null
+        ? String(health.demoScenario)
+        : null;
+
   return {
     locomotive_id: snapshot.locomotiveId ?? '—',
     locomotiveType: snapshot.locomotiveType,
+    demoScenario,
     health: health.score ?? health.total_score,
     healthClass: health.class,
     healthStatus: health.status,

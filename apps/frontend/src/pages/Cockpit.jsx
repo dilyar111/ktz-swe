@@ -12,6 +12,12 @@ function healthStrokeClass(status) {
   return 'stroke-status-ok';
 }
 
+/** Demo scenario id → e.g. CRITICAL OVERHEAT */
+function formatScenarioName(id) {
+  if (!id || typeof id !== 'string') return '';
+  return id.replace(/_/g, ' ').toUpperCase();
+}
+
 export default function Cockpit() {
   const { locomotiveType } = useOutletContext();
   const { data, history, connected, profileMismatch, streamType, initialLoading } = useCockpitData(locomotiveType);
@@ -144,6 +150,11 @@ export default function Cockpit() {
                       Health Index
                     </p>
                     <p className="text-xs text-muted-foreground mt-1 capitalize">{data.healthStatus}</p>
+                    {data.demoScenario ? (
+                      <p className="text-xs text-muted-foreground/80 mt-2 font-mono tracking-tight">
+                        Scenario: {formatScenarioName(data.demoScenario)}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
