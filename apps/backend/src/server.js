@@ -10,6 +10,7 @@ const { computeHealthForClient } = require('./health');
 const { evaluateAlerts } = require('./alerts');
 const { updateAlertsForLocomotive, getActiveAlerts, ackAlert } = require('./alerts/store');
 const { rememberCurrent, getCurrentEntry } = require('./currentStore');
+const { buildIncidentReport, reportToCsv } = require('./report/reportBuilder');
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
@@ -288,6 +289,51 @@ app.get('/api/history', (req, res) => {
     includeHealth: includeHealth || undefined,
     entries,
   });
+});
+
+/**
+ * HK-013 — Incident / replay window export (JSON or CSV).
+ * Query: locomotiveType, locomotiveId, from, to (epoch ms), optional format=json|csv
+ */
+app.get('/api/report', (req, res) => {
+  const locomotiveType =
+    typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId =
+    typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+  const fromMs = Number(req.query.from);
+  const toMs = Number(req.query.to);
+
+  if (!locomotiveType || !locomotiveId) {
+    return res.status(400).json({ error: 'locomotiveType and locomotiveId are required' });
+  }
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return res.status(400).json({ error: 'from and to must be numeric epoch timestamps (ms)' });
+  }
+  if (fromMs > toMs) {
+    return res.status(400).json({ error: 'from must be <= to' });
+  }
+
+  const formatRaw = String(req.query.format ?? 'json')
+    .trim()
+    .toLowerCase();
+  const asCsv = formatRaw === 'csv';
+
+  const report = buildIncidentReport(
+    { history, getActiveAlerts },
+    { locomotiveType, locomotiveId, fromMs, toMs }
+  );
+
+  if (asCsv) {
+    const safeId = locomotiveId.replace(/[^\w.-]+/g, '_');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="ktz-incident-report-${locomotiveType}-${safeId}.csv"`
+    );
+    return res.send(reportToCsv(report));
+  }
+
+  res.json(report);
 });
 
 io = initSocket(server, CLIENT_URL);
