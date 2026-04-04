@@ -55,9 +55,49 @@ export default function Cockpit() {
                 <h3 className="font-semibold text-sm uppercase tracking-wider mb-4 opacity-70">Алерты</h3>
                 {data.alerts.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    Нет активных алертов (правила на бэкенде — HK-следующий этап)
+                    Нет активных алертов
                   </div>
-                ) : null}
+                ) : (
+                  <ul className="space-y-3 max-h-[min(520px,70vh)] overflow-y-auto pr-1">
+                    {data.alerts.map((a) => (
+                      <li
+                        key={a.id}
+                        className={cn(
+                          'rounded-lg border p-3 text-sm',
+                          a.severity === 'critical'
+                            ? 'border-status-critical/50 bg-status-critical/10'
+                            : a.severity === 'warning'
+                              ? 'border-status-warning/50 bg-status-warning/10'
+                              : 'border-border bg-muted/30'
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold leading-snug">{a.title}</span>
+                          <span
+                            className={cn(
+                              'shrink-0 text-[10px] uppercase tracking-wide font-mono px-1.5 py-0.5 rounded',
+                              a.severity === 'critical'
+                                ? 'bg-status-critical/20 text-status-critical'
+                                : a.severity === 'warning'
+                                  ? 'bg-status-warning/20 text-status-warning'
+                                  : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            {a.severity}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">{a.message}</p>
+                        <p className="mt-2 pt-2 border-t border-border/60 text-xs leading-relaxed">
+                          <span className="text-muted-foreground font-medium">Рекомендация: </span>
+                          {a.recommendation}
+                        </p>
+                        <p className="mt-1.5 text-[10px] font-mono text-muted-foreground/80">
+                          {a.code} · {a.subsystem} · {a.locomotiveType}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 

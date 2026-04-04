@@ -7,6 +7,7 @@ const cors = require('cors');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
+const { evaluateAlerts } = require('./alerts');
 
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
@@ -22,24 +23,28 @@ let io = null;
 
 const history = new HistoryBuffer({ maxMs: 15 * 60 * 1000 });
 
-/** Последний snapshot + health для быстрого REST и демо без ожидания WebSocket */
+/** Состояние для дельт (тормоза, ток, коды) — ключ locomotiveType:locomotiveId */
+const telemetryState = new Map();
+
+/** Последний snapshot + health + alerts для быстрого REST и демо без ожидания WebSocket */
 const currentStore = {
-  /** @type {{ snapshot: object, health: object } | null} */
+  /** @type {{ snapshot: object, health: object, alerts: object[] } | null} */
   lastOverall: null,
-  /** @type {Map<string, { snapshot: object, health: object }>} */
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
   byComposite: new Map(),
-  /** @type {Map<string, { snapshot: object, health: object }>} */
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
   byType: new Map(),
-  /** @type {Map<string, { snapshot: object, health: object }>} */
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
   byLocomotiveId: new Map(),
 };
 
 /**
  * @param {object} snapshot
  * @param {object} health
+ * @param {object[]} alerts
  */
-function rememberCurrent(snapshot, health) {
-  const pair = { snapshot, health };
+function rememberCurrent(snapshot, health, alerts) {
+  const pair = { snapshot, health, alerts };
   currentStore.lastOverall = pair;
   currentStore.byComposite.set(`${snapshot.locomotiveType}:${snapshot.locomotiveId}`, pair);
   currentStore.byType.set(snapshot.locomotiveType, pair);
@@ -101,14 +106,26 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   history.push(ts, snapshot);
 
+  const compositeKey = `${locomotiveType}:${locomotiveId}`;
+  const prevState = telemetryState.get(compositeKey) ?? null;
+  const { alerts, nextState } = evaluateAlerts(snapshot, prevState);
+  telemetryState.set(compositeKey, nextState);
 
-  const health = computeHealthStub(snapshot);
-  rememberCurrent(snapshot, health);
+  const health = computeHealthForClient(snapshot);
+  rememberCurrent(snapshot, health, alerts);
 
-  emitToAll(io, 'telemetry:update', { snapshot, health });
+  const alertsPayload = {
+    locomotiveId,
+    locomotiveType,
+    alerts,
+    timestamp: snapshot.timestamp,
+  };
+
+  emitToAll(io, 'telemetry:update', { snapshot, health, alerts });
+  emitToAll(io, 'alerts:update', alertsPayload);
   emitToAll(io, 'health:update', health);
 
-  res.status(202).json({ accepted: true, health });
+  res.status(202).json({ accepted: true, health, alerts });
 });
 
 /**
@@ -133,7 +150,7 @@ app.get('/api/current', (req, res) => {
   if (!pair) {
     return res.status(404).json({ error: 'no snapshot' });
   }
-  res.json({ snapshot: pair.snapshot, health: pair.health });
+  res.json({ snapshot: pair.snapshot, health: pair.health, alerts: pair.alerts ?? [] });
 });
 
 app.get('/api/history', (req, res) => {
