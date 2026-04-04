@@ -1,6 +1,7 @@
 /**
  * Синтетическая телеметрия → POST /api/telemetry/ingest
  * Частота по умолчанию 1 Гц (1000 ms). Профиль: KZ8A или TE33A через LOCOMOTIVE_TYPE.
+ * Сценарий демо: GET /api/scenario (backend in-memory), меняется без рестарта.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -29,8 +30,6 @@ loadEnv();
 const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000';
 const INTERVAL_MS = Number(process.env.SIM_INTERVAL_MS) || 1000;
 const TYPE = (process.env.LOCOMOTIVE_TYPE || 'KZ8A').toUpperCase();
-/** `critical` — периодически шлёт экстремальную телеметрию (критические алерты rule engine). */
-const SCENARIO = (process.env.SIM_SCENARIO || '').toLowerCase();
 
 const BACKEND_WAIT_TIMEOUT_MS = 10000;
 
@@ -68,6 +67,23 @@ async function waitForBackend() {
 
 let tick = 0;
 
+/** Last known scenario from API (default until first successful GET). */
+let currentScenario = 'normal';
+
+async function fetchScenario() {
+  try {
+    const url = `${BACKEND.replace(/\/$/, '')}/api/scenario`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data.scenario === 'string') {
+      currentScenario = data.scenario;
+    }
+  } catch {
+    /* keep last scenario — backend may be briefly unavailable */
+  }
+}
+
 function sampleTelemetry() {
   tick += 1;
   const t = Date.now();
@@ -82,6 +98,7 @@ function sampleTelemetry() {
           brakePressureBar: 4.8 + Math.sin(tick / 15) * 0.1,
           fuelLevelPct: 62 - tick * 0.001,
           tractionCurrentA: 280 + Math.sin(tick / 10) * 40,
+          batteryVoltageV: 27.5 + Math.sin(tick / 30) * 0.3,
           faultCodeCount: tick > 200 && tick < 260 ? 1 : 0,
           signalQualityPct: 97,
         }
@@ -98,7 +115,7 @@ function sampleTelemetry() {
           signalQualityPct: 99,
         };
 
-  const normal = {
+  return {
     ...base,
     timestamp: new Date(t).toISOString(),
     lat: 51.12 + tick * 1e-5,
@@ -106,27 +123,94 @@ function sampleTelemetry() {
     routeId: 'route-demo-1',
     speedLimitKmh: 80,
   };
+}
 
-  if (SCENARIO === 'critical' && tick % 35 === 0) {
-    return {
-      ...normal,
-      engineTempC: 105,
-      oilTempC: 102,
-      brakePressureBar: 3.6,
-      speedKmh: 92,
-      speedLimitKmh: 80,
-      tractionCurrentA: TYPE === 'TE33A' ? 540 : 720,
-      lineVoltageV: TYPE === 'KZ8A' ? 25000 : undefined,
-      signalQualityPct: 62,
-      faultCodeCount: 4,
-    };
+/**
+ * Apply demo scenario on top of base synthetic telemetry. Keeps fields aligned with health normalize().
+ * @param {Record<string, unknown>} baseTelemetry
+ * @param {string} scenario
+ */
+function applyScenario(baseTelemetry, scenario) {
+  const s = String(scenario || 'normal').toLowerCase();
+  const limit = Number(baseTelemetry.speedLimitKmh) || 80;
+  const isTe = baseTelemetry.locomotiveType === 'TE33A';
+
+  const out = {
+    ...baseTelemetry,
+    demoScenario: s,
+  };
+
+  switch (s) {
+    case 'normal': {
+      const stableTemp = isTe ? 72 + Math.sin(tick / 40) * 2 : 68 + Math.sin(tick / 40) * 2;
+      return {
+        ...out,
+        engineTempC: stableTemp,
+        oilTempC: isTe ? stableTemp - 2 : out.oilTempC,
+        brakePressureBar: isTe ? 4.85 : 5.0,
+        signalQualityPct: 98,
+        faultCodeCount: 0,
+        speedKmh: Math.min(Number(out.speedKmh) || 0, limit - 5),
+        vibrationMmS: 2 + Math.sin(tick / 22) * 0.5,
+      };
+    }
+    case 'warning_overheat': {
+      const hi = 92 + (tick % 7); // 92–98
+      return {
+        ...out,
+        engineTempC: hi,
+        oilTempC: isTe ? hi - 1 : out.oilTempC,
+        vibrationMmS: 4,
+      };
+    }
+    case 'critical_overheat': {
+      const hi = 103 + (tick % 5);
+      return {
+        ...out,
+        engineTempC: hi,
+        oilTempC: isTe ? hi - 1 : out.oilTempC,
+        tractionCurrentA: Number(out.tractionCurrentA) + 80,
+        vibrationMmS: 6,
+      };
+    }
+    case 'brake_drop': {
+      const low = 3.9 + (tick % 5) * 0.08; // < 4.5
+      return {
+        ...out,
+        brakePressureBar: low,
+      };
+    }
+    case 'signal_loss': {
+      return {
+        ...out,
+        signalQualityPct: 52 + (tick % 5),
+        faultCodeCount: 2 + (tick % 2),
+      };
+    }
+    case 'highload': {
+      const over = limit + 18 + (tick % 4);
+      const next = {
+        ...out,
+        speedKmh: over,
+        tractionCurrentA: isTe ? 920 : 980,
+        vibrationMmS: 12 + (tick % 3),
+      };
+      if (!isTe) {
+        next.lineVoltageV = 26800;
+      } else {
+        next.batteryVoltageV = 34;
+      }
+      return next;
+    }
+    default:
+      return { ...out, demoScenario: 'normal' };
   }
-
-  return normal;
 }
 
 async function sendOnce() {
-  const body = sampleTelemetry();
+  await fetchScenario();
+  const raw = sampleTelemetry();
+  const body = applyScenario(raw, currentScenario);
   const res = await fetch(`${BACKEND}/api/telemetry/ingest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,10 +223,7 @@ async function sendOnce() {
 }
 
 await waitForBackend();
-console.log(
-  `✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE}` +
-    (SCENARIO === 'critical' ? ' scenario=critical' : '')
-);
+console.log(`✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE} (scenario via GET /api/scenario)`);
 function logIngestError(err) {
   const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err);
   console.log(`❌ ingest error: ${msg}`);
