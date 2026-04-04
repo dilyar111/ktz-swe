@@ -108,8 +108,10 @@ app.get('/api/profiles/:type', (req, res) => {
 });
 
 app.get('/api/scenario', (_req, res) => {
+  const state = getScenario();
   res.json({
-    scenario: getScenario(),
+    scenario: state.scenario,
+    locomotiveType: state.locomotiveType,
     valid: [...VALID_SCENARIOS],
   });
 });
@@ -117,14 +119,17 @@ app.get('/api/scenario', (_req, res) => {
 app.post('/api/scenario', (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const previous = getScenario();
-  const result = setScenario(body.scenario);
+  const result = setScenario(body.scenario, body.locomotiveType);
   if (!result.ok) {
     return res.status(400).json({ ok: false, error: result.error });
   }
-  if (result.scenario !== previous) {
+  if (result.scenario !== previous.scenario) {
     console.log(`⚙️ Scenario switched to: ${result.scenario}`);
   }
-  res.json({ ok: true, scenario: result.scenario });
+  if (result.locomotiveType !== previous.locomotiveType) {
+    console.log(`🚂 Locomotive type switched to: ${result.locomotiveType}`);
+  }
+  res.json({ ok: true, scenario: result.scenario, locomotiveType: result.locomotiveType });
 });
 
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */

@@ -67,8 +67,8 @@ async function waitForBackend() {
 
 let tick = 0;
 
-/** Last known scenario from API (default until first successful GET). */
 let currentScenario = 'normal';
+let currentLocomotiveType = TYPE;
 
 async function fetchScenario() {
   try {
@@ -79,6 +79,9 @@ async function fetchScenario() {
     if (data && typeof data.scenario === 'string') {
       currentScenario = data.scenario;
     }
+    if (data && typeof data.locomotiveType === 'string') {
+      currentLocomotiveType = data.locomotiveType;
+    }
   } catch {
     /* keep last scenario — backend may be briefly unavailable */
   }
@@ -88,7 +91,7 @@ function sampleTelemetry() {
   tick += 1;
   const t = Date.now();
   const base =
-    TYPE === 'TE33A'
+    currentLocomotiveType === 'TE33A'
       ? {
           locomotiveType: 'TE33A',
           locomotiveId: 'TE33A-DEMO-01',
@@ -163,7 +166,7 @@ function applyScenario(baseTelemetry, scenario) {
         vibrationMmS: 4,
       };
     }
-    case 'critical_overheat': {
+    case 'critical': {
       const hi = 103 + (tick % 5);
       return {
         ...out,
@@ -223,7 +226,7 @@ async function sendOnce() {
 }
 
 await waitForBackend();
-console.log(`✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE} (scenario via GET /api/scenario)`);
+console.log(`✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms (locomotiveType/scenario managed by GET /api/scenario)`);
 function logIngestError(err) {
   const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err);
   console.log(`❌ ingest error: ${msg}`);
