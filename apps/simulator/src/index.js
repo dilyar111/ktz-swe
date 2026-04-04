@@ -30,6 +30,40 @@ const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000';
 const INTERVAL_MS = Number(process.env.SIM_INTERVAL_MS) || 1000;
 const TYPE = (process.env.LOCOMOTIVE_TYPE || 'KZ8A').toUpperCase();
 
+const BACKEND_WAIT_TIMEOUT_MS = 10000;
+
+/** Avoid ECONNREFUSED when `npm run dev` starts the simulator before the API is listening. */
+async function waitForBackend() {
+  const healthUrl = `${BACKEND.replace(/\/$/, '')}/health`;
+  let loggedWait = false;
+  let loggedTimeout = false;
+  const startedAt = Date.now();
+
+  for (;;) {
+    try {
+      const res = await fetch(healthUrl);
+      if (res.ok) {
+        if (loggedWait) console.log('✅ Backend reachable — starting telemetry.');
+        return;
+      }
+    } catch {
+      /* not ready yet */
+    }
+
+    if (!loggedWait) {
+      console.log(`⚠️ Waiting for backend at ${BACKEND}…`);
+      loggedWait = true;
+    }
+
+    if (!loggedTimeout && Date.now() - startedAt >= BACKEND_WAIT_TIMEOUT_MS) {
+      console.log('❌ Backend not reachable after 10s — still retrying…');
+      loggedTimeout = true;
+    }
+
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
 let tick = 0;
 
 function sampleTelemetry() {
@@ -81,10 +115,15 @@ async function sendOnce() {
   });
   if (!res.ok) {
     const text = await res.text();
-    console.error(`ingest failed ${res.status}: ${text}`);
+    console.log(`❌ ingest failed ${res.status}: ${text}`);
   }
 }
 
-console.log(`Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE}`);
-sendOnce().catch(console.error);
-setInterval(() => sendOnce().catch(console.error), INTERVAL_MS);
+await waitForBackend();
+console.log(`✅ Simulator → ${BACKEND} every ${INTERVAL_MS}ms type=${TYPE}`);
+function logIngestError(err) {
+  const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err);
+  console.log(`❌ ingest error: ${msg}`);
+}
+sendOnce().catch(logIngestError);
+setInterval(() => sendOnce().catch(logIngestError), INTERVAL_MS);

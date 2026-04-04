@@ -74,9 +74,55 @@ app.get('/api/history', (req, res) => {
 
 io = initSocket(server, CLIENT_URL);
 
+/**
+ * One-shot DX banner: backend is up; poll until Vite answers and telemetry exists (or timeout).
+ * No stack traces — only console lines.
+ */
+async function printSystemReadyBanner() {
+  const maxWaitMs = 60000;
+  const deadline = Date.now() + maxWaitMs;
+  let frontendOk = false;
+  let telemetryOk = false;
+
+  while (Date.now() < deadline && (!frontendOk || !telemetryOk)) {
+    try {
+      const r = await fetch(CLIENT_URL, { signal: AbortSignal.timeout(2000) });
+      if (r.ok) frontendOk = true;
+    } catch {
+      /* dev server not up yet */
+    }
+
+    const rows = history.getRange(Date.now() - 120000, Date.now());
+    if (rows.length > 0) telemetryOk = true;
+
+    if (frontendOk && telemetryOk) {
+      console.log('\n🚀 System ready:');
+      console.log('  ✅ backend: OK');
+      console.log('  ✅ frontend: OK');
+      console.log('  ✅ simulator: OK\n');
+      return;
+    }
+
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  console.log('\n🚀 System ready:');
+  console.log('  ✅ backend: OK');
+  console.log(
+    frontendOk ? '  ✅ frontend: OK' : `  ⚠️ frontend: not reachable yet (${CLIENT_URL})`
+  );
+  console.log(
+    telemetryOk
+      ? '  ✅ simulator: OK'
+      : '  ⚠️ simulator: no telemetry yet (is the simulator running?)'
+  );
+  console.log('');
+}
+
 server.listen(PORT, () => {
-  console.log(`KTZ API: http://localhost:${PORT}`);
-  console.log(`Health:  http://localhost:${PORT}/health`);
+  console.log(`✅ KTZ API: http://localhost:${PORT}`);
+  console.log(`   Health:  http://localhost:${PORT}/health`);
+  void printSystemReadyBanner();
 });
 
 /**
