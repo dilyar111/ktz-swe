@@ -55,6 +55,23 @@ app.get('/api/profiles/:type', (req, res) => {
   res.json({ profile });
 });
 
+app.get('/api/current', (req, res) => {
+  const type = req.query.locomotiveType?.toUpperCase();
+  const rows = history.getRange(Date.now() - 15 * 60 * 1000, Date.now());
+  if (rows.length === 0) return res.status(404).json({ error: 'no data' });
+
+  const filtered = type
+    ? rows.filter((r) => r.data?.locomotiveType === type)
+    : rows;
+
+  const last = filtered.length > 0
+    ? filtered[filtered.length - 1].data
+    : rows[rows.length - 1].data;
+
+  const health = computeHealthStub(last);
+  res.json({ snapshot: last, health });
+});
+
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
 app.post('/api/telemetry/ingest', (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
