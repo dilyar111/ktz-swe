@@ -83,7 +83,7 @@ app.post('/api/telemetry/ingest', (req, res) => {
   history.push(ts, snapshot);
 
 
-  const health = computeHealthStub(snapshot);
+  const health = computeHealthForClient(snapshot);
   rememberCurrent(snapshot, health);
 
   emitToAll(io, 'telemetry:update', { snapshot, health });
