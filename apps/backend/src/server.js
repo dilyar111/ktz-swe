@@ -7,6 +7,10 @@ const cors = require('cors');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
+const { evaluateAlerts } = require('./alerts');
+
+
+const { getAllProfiles, getProfile } = require('./profiles/index');
 
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -19,24 +23,28 @@ let io = null;
 
 const history = new HistoryBuffer({ maxMs: 15 * 60 * 1000 });
 
-/** Последний snapshot + health для быстрого REST и демо без ожидания WebSocket */
+/** Состояние для дельт (тормоза, ток, коды) — ключ locomotiveType:locomotiveId */
+const telemetryState = new Map();
+
+/** Последний snapshot + health + alerts для быстрого REST и демо без ожидания WebSocket */
 const currentStore = {
-  /** @type {{ snapshot: object, health: object } | null} */
+  /** @type {{ snapshot: object, health: object, alerts: object[] } | null} */
   lastOverall: null,
-  /** @type {Map<string, { snapshot: object, health: object }>} */
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
   byComposite: new Map(),
-  /** @type {Map<string, { snapshot: object, health: object }>} */
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
   byType: new Map(),
-  /** @type {Map<string, { snapshot: object, health: object }>} */
+  /** @type {Map<string, { snapshot: object, health: object, alerts: object[] }>} */
   byLocomotiveId: new Map(),
 };
 
 /**
  * @param {object} snapshot
  * @param {object} health
+ * @param {object[]} alerts
  */
-function rememberCurrent(snapshot, health) {
-  const pair = { snapshot, health };
+function rememberCurrent(snapshot, health, alerts) {
+  const pair = { snapshot, health, alerts };
   currentStore.lastOverall = pair;
   currentStore.byComposite.set(`${snapshot.locomotiveType}:${snapshot.locomotiveId}`, pair);
   currentStore.byType.set(snapshot.locomotiveType, pair);
@@ -61,6 +69,22 @@ app.get('/health', (_req, res) => {
   });
 });
 
+
+app.get('/api/profiles', (_req, res) => {
+  res.json({ profiles: getAllProfiles() });
+});
+
+// один профиль по типу
+app.get('/api/profiles/:type', (req, res) => {
+  const profile = getProfile(req.params.type.toUpperCase());
+
+  if (!profile) {
+    return res.status(404).json({ error: 'Profile not found' });
+  }
+
+  res.json({ profile });
+});
+
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
 app.post('/api/telemetry/ingest', (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -82,14 +106,26 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   history.push(ts, snapshot);
 
+  const compositeKey = `${locomotiveType}:${locomotiveId}`;
+  const prevState = telemetryState.get(compositeKey) ?? null;
+  const { alerts, nextState } = evaluateAlerts(snapshot, prevState);
+  telemetryState.set(compositeKey, nextState);
 
   const health = computeHealthForClient(snapshot);
   rememberCurrent(snapshot, health);
 
-  emitToAll(io, 'telemetry:update', { snapshot, health });
+  const alertsPayload = {
+    locomotiveId,
+    locomotiveType,
+    alerts,
+    timestamp: snapshot.timestamp,
+  };
+
+  emitToAll(io, 'telemetry:update', { snapshot, health, alerts });
+  emitToAll(io, 'alerts:update', alertsPayload);
   emitToAll(io, 'health:update', health);
 
-  res.status(202).json({ accepted: true, health });
+  res.status(202).json({ accepted: true, health, alerts });
 });
 
 /**
@@ -114,7 +150,7 @@ app.get('/api/current', (req, res) => {
   if (!pair) {
     return res.status(404).json({ error: 'no snapshot' });
   }
-  res.json({ snapshot: pair.snapshot, health: pair.health });
+  res.json({ snapshot: pair.snapshot, health: pair.health, alerts: pair.alerts ?? [] });
 });
 
 app.get('/api/history', (req, res) => {
@@ -152,8 +188,7 @@ app.get('/api/history', (req, res) => {
 io = initSocket(server, CLIENT_URL);
 
 /**
- * One-shot DX banner: backend is up; poll until Vite answers and telemetry exists (or timeout).
- * No stack traces — only console lines.
+ * One-shot DX banner
  */
 async function printSystemReadyBanner() {
   const maxWaitMs = 60000;
@@ -165,9 +200,7 @@ async function printSystemReadyBanner() {
     try {
       const r = await fetch(CLIENT_URL, { signal: AbortSignal.timeout(2000) });
       if (r.ok) frontendOk = true;
-    } catch {
-      /* dev server not up yet */
-    }
+    } catch {}
 
     const rows = history.getRange(Date.now() - 120000, Date.now());
     if (rows.length > 0) telemetryOk = true;
@@ -201,3 +234,103 @@ server.listen(PORT, () => {
   console.log(`   Health:  http://localhost:${PORT}/health`);
   void printSystemReadyBanner();
 });
+
+/**
+ * Заглушка health
+ */
+function computeHealthStub(s) {
+  const profile = getProfile(s.locomotiveType);
+  const thresholds = profile ? profile.thresholds : {};
+  const weights = profile ? profile.healthWeights : {};
+  const recommendations = profile ? profile.recommendations : {};
+
+  const contributors = [];
+  let totalPenalty = 0;
+
+  // --- Thermal / diesel penalties ---
+  const temp = Number(s.oilTempC ?? s.engineTempC ?? s.oil_temp ?? s.inverter_temp ?? 70);
+  const tempKey = s.locomotiveType === 'TE33A' ? 'oil_temp' : 'inverter_temp';
+  const tempThresh = thresholds[tempKey] ?? { warn: 85, crit: 100 };
+  if (temp >= tempThresh.crit) {
+    const penalty = 25;
+    totalPenalty += penalty;
+    contributors.push({ key: 'thermal', label: 'Temperature critical', penalty });
+  } else if (temp >= tempThresh.warn) {
+    const penalty = 12;
+    totalPenalty += penalty;
+    contributors.push({ key: 'thermal', label: 'Temperature warning', penalty });
+  }
+
+  // --- Brake pressure penalties ---
+  const brake = Number(s.brakePressure ?? s.brake_pressure ?? 999);
+  const brakeThresh = thresholds['brake_pressure'] ?? { warnLow: 350, critLow: 300 };
+  if (brake < brakeThresh.critLow) {
+    const penalty = 25;
+    totalPenalty += penalty;
+    contributors.push({ key: 'brakes', label: 'Brake pressure critical', penalty });
+  } else if (brake < brakeThresh.warnLow) {
+    const penalty = 12;
+    totalPenalty += penalty;
+    contributors.push({ key: 'brakes', label: 'Brake pressure low', penalty });
+  }
+
+  // --- Speed penalties ---
+  const speed = Number(s.speedKmh ?? s.speed ?? 0);
+  const speedThresh = thresholds['speed'] ?? { warn: 100, crit: 120 };
+  if (speed >= speedThresh.crit) {
+    const penalty = 20;
+    totalPenalty += penalty;
+    contributors.push({ key: 'traction', label: 'Overspeed critical', penalty });
+  } else if (speed >= speedThresh.warn) {
+    const penalty = 8;
+    totalPenalty += penalty;
+    contributors.push({ key: 'traction', label: 'Overspeed warning', penalty });
+  }
+
+  // --- Fault codes ---
+  const faults = Number(s.faultCodeCount ?? s.fault_count ?? 0);
+  const faultThresh = thresholds['fault_count'] ?? { warn: 1, crit: 3 };
+  if (faults >= faultThresh.crit) {
+    const penalty = 20;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Multiple fault codes', penalty });
+  } else if (faults >= faultThresh.warn) {
+    const penalty = 8;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Fault code active', penalty });
+  }
+
+  // --- Signal quality (TE33A only) ---
+  const signal = Number(s.signalQuality ?? s.signal_quality ?? 100);
+  const sigThresh = thresholds['signal_quality'] ?? { warnLow: 60, critLow: 30 };
+  if (signal < sigThresh.critLow) {
+    const penalty = 15;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Signal loss critical', penalty });
+  } else if (signal < sigThresh.warnLow) {
+    const penalty = 7;
+    totalPenalty += penalty;
+    contributors.push({ key: 'signaling', label: 'Signal quality low', penalty });
+  }
+
+  const score = Math.max(0, Math.min(100, 100 - totalPenalty));
+
+  // --- Recommendation ---
+  let recommendation = recommendations.default ?? 'Продолжать наблюдение';
+  if (contributors.length > 0) {
+    const top = contributors[0].key;
+    const isCrit = score < 50;
+    const recKey = `${top}_${isCrit ? 'crit' : 'warn'}`;
+    recommendation = recommendations[recKey] ?? recommendations.default ?? recommendation;
+  }
+
+  return {
+    score: Math.round(score),
+    class: score >= 80 ? 'A' : score >= 50 ? 'C' : 'E',
+    status: score >= 80 ? 'normal' : score >= 50 ? 'warning' : 'critical',
+    contributors: contributors.sort((a, b) => b.penalty - a.penalty).slice(0, 5),
+    recommendation,
+    locomotiveType: s.locomotiveType,
+    profileUsed: profile ? profile.id : 'fallback',
+  };
+}

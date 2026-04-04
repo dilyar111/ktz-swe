@@ -36,8 +36,12 @@ function normalizeMetrics(snap, locomotiveType) {
   };
 }
 
-function buildCockpitModel(locomotiveType, snapshot, health) {
+/**
+ * @param {unknown[]} alerts
+ */
+function buildCockpitModel(locomotiveType, snapshot, health, alerts = []) {
   if (!snapshot || snapshot.locomotiveType !== locomotiveType) return null;
+  const list = Array.isArray(alerts) ? alerts : [];
   return {
     locomotive_id: snapshot.locomotiveId ?? '—',
     locomotiveType: snapshot.locomotiveType,
@@ -46,7 +50,7 @@ function buildCockpitModel(locomotiveType, snapshot, health) {
     healthStatus: health.status,
     contributors: health.contributors ?? [],
     metrics: normalizeMetrics(snapshot, locomotiveType),
-    alerts: [],
+    alerts: list,
     raw: { snapshot, health },
   };
 }
@@ -73,11 +77,20 @@ export function useCockpitData(locomotiveType) {
           const prevMs = prev?.snapshot ? snapshotReceivedAtMs(prev.snapshot) : 0;
           const nextMs = snapshotReceivedAtMs(body.snapshot);
           if (prev && prevMs >= nextMs) return prev;
-          return { snapshot: body.snapshot, health: body.health };
+          return {
+            snapshot: body.snapshot,
+            health: body.health,
+            alerts: body.alerts ?? [],
+          };
         });
         setHistory((prev) => {
           if (prev.length > 0) return prev;
-          const model = buildCockpitModel(locomotiveType, body.snapshot, body.health);
+          const model = buildCockpitModel(
+            locomotiveType,
+            body.snapshot,
+            body.health,
+            body.alerts
+          );
           return model?.metrics ? [model.metrics] : [];
         });
       })
@@ -97,10 +110,21 @@ export function useCockpitData(locomotiveType) {
       const snap = payload?.snapshot;
       const health = payload?.health;
       if (!snap || !health) return;
-      const model = buildCockpitModel(locomotiveType, snap, health);
+      const model = buildCockpitModel(locomotiveType, snap, health, payload?.alerts);
       if (model?.metrics) {
         setHistory((prev) => [...prev, model.metrics].slice(-120));
       }
+    });
+    socket.on('alerts:update', (p) => {
+      const expectedId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
+      if (!p?.locomotiveId || p.locomotiveType !== locomotiveType || p.locomotiveId !== expectedId) {
+        return;
+      }
+      setLastPayload((prev) => {
+        if (!prev?.snapshot) return prev;
+        if (prev.snapshot.locomotiveId !== p.locomotiveId) return prev;
+        return { ...prev, alerts: Array.isArray(p.alerts) ? p.alerts : [] };
+      });
     });
     return () => {
       socket.removeAllListeners();
@@ -109,7 +133,12 @@ export function useCockpitData(locomotiveType) {
   }, [locomotiveType]);
 
   const data = lastPayload
-    ? buildCockpitModel(locomotiveType, lastPayload.snapshot, lastPayload.health)
+    ? buildCockpitModel(
+        locomotiveType,
+        lastPayload.snapshot,
+        lastPayload.health,
+        lastPayload.alerts ?? []
+      )
     : null;
 
   const streamType = lastPayload?.snapshot?.locomotiveType;
