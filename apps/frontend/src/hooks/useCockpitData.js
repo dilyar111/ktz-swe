@@ -41,10 +41,15 @@ function buildCockpitModel(locomotiveType, snapshot, health, alerts = []) {
   return {
     locomotive_id: snapshot.locomotiveId ?? '—',
     locomotiveType: snapshot.locomotiveType,
-    health: health.score,
+    health: health.score ?? health.total_score,
     healthClass: health.class,
     healthStatus: health.status,
     contributors: health.contributors ?? [],
+    /** HK-009 breakdown — optional if backend older */
+    subsystems: health.subsystems ?? null,
+    profile: health.profile ?? null,
+    weights: health.weights ?? null,
+    total_score: health.total_score ?? health.score,
     metrics: normalizeMetrics(snapshot, locomotiveType),
     alerts: list,
     raw: { snapshot, health },
@@ -75,8 +80,12 @@ export function useCockpitData(locomotiveType) {
 
     async function fetchCurrent() {
       try {
-        const res = await fetch(`${API_BASE}/api/current?${params}`);
-        if (!res.ok) return;
+
+        const res = await fetch(
+          `${API_BASE}/api/current?locomotiveType=${locomotiveType}`
+        );
+        if (!res.ok) return; // 404 — нет данных, просто ждём сокет
+
         const json = await res.json();
         if (!cancelled && json.snapshot && json.health) {
           const alerts = Array.isArray(json.alerts)
