@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || WS_URL;
+
+/** ID по умолчанию — как в симуляторе (см. apps/simulator) */
+const DEFAULT_LOCOMOTIVE_ID = {
+  KZ8A: 'KZ8A-DEMO-01',
+  TE33A: 'TE33A-DEMO-01',
+};
+
+function snapshotReceivedAtMs(snapshot) {
+  const raw = snapshot?.receivedAt ?? snapshot?.timestamp;
+  if (!raw) return 0;
+  const t = Date.parse(raw);
+  return Number.isNaN(t) ? 0 : t;
+}
 
 /**
  * Приводит сырой snapshot бэкенда к полям карточек cockpit.
@@ -44,6 +58,34 @@ export function useCockpitData(locomotiveType) {
 
   useEffect(() => {
     setHistory([]);
+  }, [locomotiveType]);
+
+  useEffect(() => {
+    const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
+    const params = new URLSearchParams({ locomotiveType, locomotiveId });
+    let cancelled = false;
+
+    fetch(`${API_BASE}/api/current?${params}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.snapshot || !body?.health) return;
+        setLastPayload((prev) => {
+          const prevMs = prev?.snapshot ? snapshotReceivedAtMs(prev.snapshot) : 0;
+          const nextMs = snapshotReceivedAtMs(body.snapshot);
+          if (prev && prevMs >= nextMs) return prev;
+          return { snapshot: body.snapshot, health: body.health };
+        });
+        setHistory((prev) => {
+          if (prev.length > 0) return prev;
+          const model = buildCockpitModel(locomotiveType, body.snapshot, body.health);
+          return model?.metrics ? [model.metrics] : [];
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, [locomotiveType]);
 
   useEffect(() => {
