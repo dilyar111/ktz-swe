@@ -112,9 +112,14 @@ export default function Cockpit() {
                     </p>
                     <ul className="space-y-1 text-sm font-mono">
                       {data.contributors.map((c) => (
-                        <li key={c.key} className="flex justify-between border-b border-border/50 py-1">
-                          <span>{c.label}</span>
-                          <span className="text-status-warning">+{c.penalty}</span>
+                        <li key={c.key} className="flex justify-between border-b border-border/50 py-1 gap-2">
+                          <span className="min-w-0" title={c.reason || undefined}>
+                            {c.label}
+                            {c.subsystem ? (
+                              <span className="text-muted-foreground text-xs ml-1">({c.subsystem})</span>
+                            ) : null}
+                          </span>
+                          <span className="text-status-warning shrink-0">+{c.penalty}</span>
                         </li>
                       ))}
                     </ul>
