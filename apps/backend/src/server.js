@@ -8,6 +8,7 @@ const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
 const { evaluateAlerts } = require('./alerts');
+const { updateAlertsForLocomotive, getActiveAlerts, ackAlert } = require('./alerts/store');
 
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
@@ -108,8 +109,10 @@ app.get('/api/profiles/:type', (req, res) => {
 });
 
 app.get('/api/scenario', (_req, res) => {
+  const state = getScenario();
   res.json({
-    scenario: getScenario(),
+    scenario: state.scenario,
+    locomotiveType: state.locomotiveType,
     valid: [...VALID_SCENARIOS],
   });
 });
@@ -117,14 +120,17 @@ app.get('/api/scenario', (_req, res) => {
 app.post('/api/scenario', (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const previous = getScenario();
-  const result = setScenario(body.scenario);
+  const result = setScenario(body.scenario, body.locomotiveType);
   if (!result.ok) {
     return res.status(400).json({ ok: false, error: result.error });
   }
-  if (result.scenario !== previous) {
+  if (result.scenario !== previous.scenario) {
     console.log(`⚙️ Scenario switched to: ${result.scenario}`);
   }
-  res.json({ ok: true, scenario: result.scenario });
+  if (result.locomotiveType !== previous.locomotiveType) {
+    console.log(`🚂 Locomotive type switched to: ${result.locomotiveType}`);
+  }
+  res.json({ ok: true, scenario: result.scenario, locomotiveType: result.locomotiveType });
 });
 
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
@@ -151,20 +157,22 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   const compositeKey = `${locomotiveType}:${locomotiveId}`;
   const prevState = telemetryState.get(compositeKey) ?? null;
-  const { alerts, nextState } = evaluateAlerts(snapshot, prevState);
+  const { alerts: freshAlerts, nextState } = evaluateAlerts(snapshot, prevState);
   telemetryState.set(compositeKey, nextState);
 
+  const activeAlerts = updateAlertsForLocomotive(locomotiveType, locomotiveId, freshAlerts);
+
   const health = computeHealthForClient(snapshot);
-  rememberCurrent(snapshot, health, alerts);
+  rememberCurrent(snapshot, health, activeAlerts);
 
   const alertsPayload = {
     locomotiveId,
     locomotiveType,
-    alerts,
+    alerts: activeAlerts,
     timestamp: snapshot.timestamp,
   };
 
-  emitToAll(io, 'telemetry:update', { snapshot, health, alerts });
+  emitToAll(io, 'telemetry:update', { snapshot, health, alerts: activeAlerts });
   emitToAll(io, 'alerts:update', alertsPayload);
   emitToAll(io, 'health:update', health);
 
@@ -242,6 +250,22 @@ function applyHistoryLimitAndOrder(rows, limit, orderAsc) {
   }
   return ordered;
 }
+app.get('/api/alerts', (req, res) => {
+  const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+  
+  const alerts = getActiveAlerts(locomotiveType, locomotiveId);
+  res.json({ alerts });
+});
+
+app.post('/api/alerts/:id/ack', (req, res) => {
+  const success = ackAlert(req.params.id);
+  if (success) {
+    res.json({ ok: true });
+  } else {
+    res.status(404).json({ error: 'Alert not found' });
+  }
+});
 
 app.get('/api/history', (req, res) => {
   const from = req.query.from ? Number(req.query.from) : Date.now() - 15 * 60 * 1000;
