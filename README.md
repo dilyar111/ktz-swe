@@ -42,6 +42,7 @@
 
    - Cockpit UI: [http://localhost:5173](http://localhost:5173)
    - Health API: [http://localhost:5000/health](http://localhost:5000/health)
+   - OpenAPI (Swagger): [http://localhost:5000/docs](http://localhost:5000/docs)
 
 После старта симулятор ждёт готовности `/health`, затем шлёт телеметрию ~1 Гц; фронт подключается по Socket.IO к `http://localhost:5000` и обновляет Cockpit в реальном времени (профиль в UI по умолчанию **KZ8A**, как у симулятора).
 
@@ -74,6 +75,22 @@ Invoke-RestMethod http://localhost:5000/health
 
 После запуска `npm run dev` в логах бэкенда появится блок **System ready** (✅ backend / frontend / simulator), когда Vite отвечает и в истории есть хотя бы одна точка телеметрии.
 
+### OpenAPI / Swagger (HK-017)
+
+После старта backend откройте **[http://localhost:5000/docs](http://localhost:5000/docs)** — Swagger UI с описанием REST API, примерами запросов/ответов и двумя примерами телеметрии (**KZ8A** / **TE33A**). Машиночитаемая спецификация: [http://localhost:5000/openapi.json](http://localhost:5000/openapi.json).
+
+## Экспорт отчёта по инциденту (HK-013)
+
+Эндпоинт **`GET /api/report`** строит отчёт за окно `[from, to]` (эпоха в миллисекундах) для пары **locomotiveType** + **locomotiveId**: сводка по индексу здоровья (HK-004), алерты в интервале, маркеры, топ вкладов с последнего снимка, рекомендации. Параметр **`format=json`** (по умолчанию) или **`format=csv`** — табличный файл с UTF-8 BOM для Excel / LibreOffice.
+
+Пример (подставьте актуальные `from` / `to`, например «сейчас − 15 мин» → «сейчас»):
+
+```bash
+curl -sS 'http://localhost:5000/api/report?locomotiveType=KZ8A&locomotiveId=KZ8A-DEMO-01&from=1710000000000&to=1710000900000&format=json' | head -c 400
+```
+
+В UI: маршрут **Reports** (`/report`) — превью сводки и кнопки экспорта JSON/CSV без смены `.env`.
+
 ## Честно о текущем состоянии
 
 | Слой | Статус |
@@ -85,7 +102,9 @@ Invoke-RestMethod http://localhost:5000/health
 | WebSocket `telemetry:update` `{ snapshot, health }` | готово |
 | Симулятор 1 Гц, `LOCOMOTIVE_TYPE`, ожидание API при старте | готово |
 | Cockpit UI (Tailwind, профили KZ8A/TE33A) | готово, данные только если тип потока = выбранный профиль |
-| Алерты, replay UI, export, OpenAPI, PostgreSQL | **не заявлены как работающие** — следующие задачи |
+| Replay UI, отчёт HK-013 (`/api/report`, `/report`) | готово |
+| OpenAPI 3 + Swagger UI (`/docs`, `/openapi.json`, HK-017) | готово |
+| Алерты (центр), OpenAPI, PostgreSQL | **не заявлены как работающие** — следующие задачи |
 
 ## Структура
 

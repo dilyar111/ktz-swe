@@ -4,16 +4,19 @@ require('dotenv').config();
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
 const { evaluateAlerts } = require('./alerts');
 const { updateAlertsForLocomotive, getActiveAlerts, ackAlert } = require('./alerts/store');
 const { rememberCurrent, getCurrentEntry } = require('./currentStore');
-const { computeRouteContext } = require('./routeContext');
+const { buildIncidentReport, reportToCsv } = require('./report/reportBuilder');
 
 const { getAllProfiles, getProfile } = require('./profiles/index');
 const { VALID_SCENARIOS, getScenario, setScenario } = require('./scenarioState');
+
+const openApiDocument = require('./openapi/openapi.json');
 
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -58,6 +61,21 @@ app.use(
   })
 );
 app.use(express.json({ limit: '512kb' }));
+
+/** HK-017 — OpenAPI 3 spec (machine-readable) */
+app.get('/openapi.json', (_req, res) => {
+  res.json(openApiDocument);
+});
+
+/** HK-017 — Swagger UI */
+app.use(
+  '/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(openApiDocument, {
+    customSiteTitle: 'KTZ Digital Twin API',
+    customCss: '.swagger-ui .topbar { display: none }',
+  })
+);
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -294,6 +312,51 @@ app.get('/api/history', (req, res) => {
   });
 });
 
+/**
+ * HK-013 — Incident / replay window export (JSON or CSV).
+ * Query: locomotiveType, locomotiveId, from, to (epoch ms), optional format=json|csv
+ */
+app.get('/api/report', (req, res) => {
+  const locomotiveType =
+    typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId =
+    typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+  const fromMs = Number(req.query.from);
+  const toMs = Number(req.query.to);
+
+  if (!locomotiveType || !locomotiveId) {
+    return res.status(400).json({ error: 'locomotiveType and locomotiveId are required' });
+  }
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return res.status(400).json({ error: 'from and to must be numeric epoch timestamps (ms)' });
+  }
+  if (fromMs > toMs) {
+    return res.status(400).json({ error: 'from must be <= to' });
+  }
+
+  const formatRaw = String(req.query.format ?? 'json')
+    .trim()
+    .toLowerCase();
+  const asCsv = formatRaw === 'csv';
+
+  const report = buildIncidentReport(
+    { history, getActiveAlerts },
+    { locomotiveType, locomotiveId, fromMs, toMs }
+  );
+
+  if (asCsv) {
+    const safeId = locomotiveId.replace(/[^\w.-]+/g, '_');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="ktz-incident-report-${locomotiveType}-${safeId}.csv"`
+    );
+    return res.send(reportToCsv(report));
+  }
+
+  res.json(report);
+});
+
 io = initSocket(server, CLIENT_URL);
 
 /**
@@ -341,5 +404,6 @@ async function printSystemReadyBanner() {
 server.listen(PORT, () => {
   console.log(`✅ KTZ API: http://localhost:${PORT}`);
   console.log(`   Health:  http://localhost:${PORT}/health`);
+  console.log(`   OpenAPI: http://localhost:${PORT}/docs`);
   void printSystemReadyBanner();
 });
