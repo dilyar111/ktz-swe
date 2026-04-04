@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Cockpit from './pages/Cockpit';
+import Replay from './pages/Replay';
 
 function Placeholder({ title }) {
   return (
@@ -24,7 +25,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Cockpit />} />
           <Route path="alerts" element={<Placeholder title="Incident Center" />} />
-          <Route path="history" element={<Placeholder title="Replay & History" />} />
+          <Route path="history" element={<Replay />} />
           <Route path="report" element={<Placeholder title="Export Report" />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

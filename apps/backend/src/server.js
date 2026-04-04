@@ -85,23 +85,6 @@ app.get('/api/profiles/:type', (req, res) => {
   res.json({ profile });
 });
 
-app.get('/api/current', (req, res) => {
-  const type = req.query.locomotiveType?.toUpperCase();
-  const rows = history.getRange(Date.now() - 15 * 60 * 1000, Date.now());
-  if (rows.length === 0) return res.status(404).json({ error: 'no data' });
-
-  const filtered = type
-    ? rows.filter((r) => r.data?.locomotiveType === type)
-    : rows;
-
-  const last = filtered.length > 0
-    ? filtered[filtered.length - 1].data
-    : rows[rows.length - 1].data;
-
-  const health = computeHealthStub(last);
-  res.json({ snapshot: last, health });
-});
-
 /** Minimal ingest — расширить валидацией и профилями KZ8A / TE33A */
 app.post('/api/telemetry/ingest', (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -129,7 +112,7 @@ app.post('/api/telemetry/ingest', (req, res) => {
   telemetryState.set(compositeKey, nextState);
 
   const health = computeHealthForClient(snapshot);
-  rememberCurrent(snapshot, health);
+  rememberCurrent(snapshot, health, alerts);
 
   const alertsPayload = {
     locomotiveId,
@@ -188,17 +171,30 @@ app.get('/api/history', (req, res) => {
   }
 
   if (limit > 0) {
-    rows = rows.slice(0, limit);
+    rows = rows.slice(-limit);
   }
+
+  const includeHealth = ['1', 'true', 'yes'].includes(
+    String(req.query.includeHealth ?? '').toLowerCase()
+  );
+
+  const entries = rows.map((e) => {
+    const base = { ts: e.ts, payload: e.payload };
+    if (includeHealth) {
+      return { ...base, health: computeHealthForClient(e.payload) };
+    }
+    return base;
+  });
 
   res.json({
     from,
     to,
-    count: rows.length,
+    count: entries.length,
     locomotiveType: locomotiveType || undefined,
     locomotiveId: locomotiveId || undefined,
     limit: limit || undefined,
-    entries: rows,
+    includeHealth: includeHealth || undefined,
+    entries,
   });
 });
 
