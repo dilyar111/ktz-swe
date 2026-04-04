@@ -563,7 +563,23 @@
                 "subsystem": { "type": "string" }
               }
             }
+          },
+          "recommendations": {
+            "type": "array",
+            "description": "HK-015 normalized operator advice (deduped, critical-first)",
+            "items": { "$ref": "#/components/schemas/OperatorRecommendation" }
           }
+        }
+      },
+      "OperatorRecommendation": {
+        "type": "object",
+        "required": ["severity", "title", "message", "source", "subsystem"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+          "title": { "type": "string", "description": "Action-oriented headline (not raw alert title)" },
+          "message": { "type": "string", "description": "Concrete operator guidance" },
+          "source": { "type": "string", "enum": ["alert", "health", "scenario"] },
+          "subsystem": { "type": "string" }
         }
       },
       "Alert": {
