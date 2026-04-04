@@ -13,9 +13,9 @@ function healthStrokeClass(status) {
 
 export default function Cockpit() {
   const { locomotiveType } = useOutletContext();
-  const { data, history, connected, profileMismatch, streamType } = useCockpitData(locomotiveType);
+  const { data, history, connected, profileMismatch, streamType, initialLoading } = useCockpitData(locomotiveType);
 
-  const showLoading = connected && !lastMeaningfulData(data, profileMismatch);
+  const showLoading = initialLoading || (connected && !lastMeaningfulData(data, profileMismatch));
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-4">
