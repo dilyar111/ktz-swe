@@ -6,6 +6,7 @@ const express = require('express');
 const cors = require('cors');
 const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
+const { computeHealthForClient } = require('./health');
 
 const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -57,7 +58,7 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   history.push(ts, snapshot);
 
-  const health = computeHealthStub(snapshot);
+  const health = computeHealthForClient(snapshot);
 
   emitToAll(io, 'telemetry:update', { snapshot, health });
   emitToAll(io, 'health:update', health);
@@ -124,25 +125,3 @@ server.listen(PORT, () => {
   console.log(`   Health:  http://localhost:${PORT}/health`);
   void printSystemReadyBanner();
 });
-
-/**
- * Заглушка: прозрачная формула для демо (заменить rule engine + ML слой).
- * @param {object} s
- */
-function computeHealthStub(s) {
-  const speed = Number(s.speedKmh ?? s.speed ?? 0);
-  const temp = Number(s.engineTempC ?? s.oilTempC ?? 70);
-  const penaltyTemp = Math.max(0, temp - 85) * 2;
-  const penaltySpeed = speed > 100 ? (speed - 100) * 0.5 : 0;
-  const score = Math.max(0, Math.min(100, 100 - penaltyTemp - penaltySpeed));
-  const contributors = [];
-  if (penaltyTemp > 0) contributors.push({ key: 'thermal', label: 'Temperature', penalty: Math.round(penaltyTemp) });
-  if (penaltySpeed > 0) contributors.push({ key: 'speed', label: 'Overspeed', penalty: Math.round(penaltySpeed) });
-  return {
-    score: Math.round(score),
-    class: score >= 80 ? 'A' : score >= 50 ? 'C' : 'E',
-    status: score >= 80 ? 'normal' : score >= 50 ? 'warning' : 'critical',
-    contributors,
-    locomotiveType: s.locomotiveType,
-  };
-}
