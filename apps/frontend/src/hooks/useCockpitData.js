@@ -72,6 +72,7 @@ function buildCockpitModel(locomotiveType, snapshot, health, alerts = []) {
     locomotive_id: snapshot.locomotiveId ?? '—',
     locomotiveType: snapshot.locomotiveType,
     demoScenario,
+    routeContext: snapshot.routeContext ?? null,
     health: health.score ?? health.total_score,
     healthClass: health.class,
     healthStatus: health.status,
