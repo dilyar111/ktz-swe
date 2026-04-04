@@ -111,7 +111,7 @@ curl -sS 'http://localhost:5000/api/report?locomotiveType=KZ8A&locomotiveId=KZ8A
 - `apps/frontend` — React + Vite + Tailwind, маршруты Cockpit / заглушки
 - `apps/backend` — Express + Socket.IO
 - `apps/simulator` — POST телеметрии в API
-- `infra/docker-compose.yml` и корневой `docker-compose.yml` — образ API
+- `docker-compose.yml` (корень) — единственный стек Docker: backend + frontend (preview/nginx) + simulator
 
 ## Сборка production-фронта
 
@@ -121,13 +121,25 @@ npm run build
 
 Собирается workspace `@ktz/frontend` (артефакты в `apps/frontend/dist/`).
 
-## Docker
+## Docker (HK-018)
+
+Один канонический путь из **корня репозитория**:
 
 ```bash
 docker compose up --build
 ```
 
-Фронт для разработки удобнее с хоста (`npm run dev`).
+Поднимает три сервиса:
+
+| Сервис | Описание |
+|--------|----------|
+| `backend` | API + Socket.IO на [http://localhost:5000](http://localhost:5000) (`/health`, `/docs`, …) |
+| `frontend` | Собранный Vite + **nginx** на [http://localhost:5173](http://localhost:5173) (preview, не hot-reload) |
+| `simulator` | POST телеметрии ~1 Гц на API (`BACKEND_URL=http://backend:5000` внутри сети compose) |
+
+Переменные (как в `.env.example`): **`CLIENT_URL`** — origin UI для CORS (по умолчанию `http://localhost:5173`); **`BACKEND_URL`** / **`SIM_INTERVAL_MS`** / **`LOCOMOTIVE_TYPE`** — симулятор; **`VITE_API_URL`** / **`VITE_WS_URL`** — подставляются в **сборку** фронта (для браузера на хосте остаётся `http://localhost:5000`).
+
+Для разработки с hot-reload по-прежнему удобнее **`npm run dev`** на хосте.
 
 ## Профиль TE33A
 
