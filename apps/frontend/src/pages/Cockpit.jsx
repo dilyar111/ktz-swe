@@ -53,12 +53,11 @@ export default function Cockpit() {
             <div className="col-span-12 lg:col-span-3">
               <div className="bg-card border border-border rounded-xl p-4 min-h-[400px]">
                 <h3 className="font-semibold text-sm uppercase tracking-wider mb-4 opacity-70">Алерты</h3>
-                {data.alerts.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    Нет активных алертов
-                  </div>
-                ) : (
-                  <ul className="space-y-3 max-h-[min(520px,70vh)] overflow-y-auto pr-1">
+                {data.alerts.length > 0 ? (
+                  <ul
+                    className="space-y-3 max-h-[min(520px,70vh)] overflow-y-auto pr-1"
+                    aria-live="polite"
+                  >
                     {data.alerts.map((a) => (
                       <li
                         key={a.id}
@@ -97,6 +96,8 @@ export default function Cockpit() {
                       </li>
                     ))}
                   </ul>
+                ) : (
+                  <div className="min-h-[120px]" aria-hidden />
                 )}
               </div>
             </div>
