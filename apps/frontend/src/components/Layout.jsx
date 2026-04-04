@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, AlertTriangle, History, FileText, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,8 +11,31 @@ const NAV_ITEMS = [
   { to: '/report', label: 'Reports', icon: FileText },
 ];
 
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
+
 export default function Layout() {
   const [locomotiveType, setLocomotiveType] = useState('KZ8A');
+
+  useEffect(() => {
+    // Initial fetch to sync with backend state
+    fetch(`${API_BASE}/api/scenario`)
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.locomotiveType) setLocomotiveType(d.locomotiveType);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleTypeChange(type) {
+    setLocomotiveType(type);
+    try {
+      await fetch(`${API_BASE}/api/scenario`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locomotiveType: type }),
+      });
+    } catch {}
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -35,7 +58,7 @@ export default function Layout() {
             <div className="flex bg-background rounded-md border border-border p-1">
               <button
                 type="button"
-                onClick={() => setLocomotiveType('KZ8A')}
+                onClick={() => handleTypeChange('KZ8A')}
                 className={cn(
                   'px-3 py-1 text-xs font-medium rounded-sm transition-colors',
                   locomotiveType === 'KZ8A'
@@ -47,7 +70,7 @@ export default function Layout() {
               </button>
               <button
                 type="button"
-                onClick={() => setLocomotiveType('TE33A')}
+                onClick={() => handleTypeChange('TE33A')}
                 className={cn(
                   'px-3 py-1 text-xs font-medium rounded-sm transition-colors',
                   locomotiveType === 'TE33A'

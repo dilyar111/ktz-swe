@@ -4,17 +4,15 @@ const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 
 
 const FALLBACK_VALID = [
   'normal',
-  'warning_overheat',
-  'critical_overheat',
+  'critical',
+  'highload',
   'brake_drop',
   'signal_loss',
-  'highload',
 ];
 
 const LABELS = {
   normal: 'Норма',
-  warning_overheat: 'Перегрев (warning)',
-  critical_overheat: 'Перегрев (critical)',
+  critical: 'Критическая: Перегрев',
   brake_drop: 'Падение тормозов',
   signal_loss: 'Потеря сигнала',
   highload: 'Высокая нагрузка',
