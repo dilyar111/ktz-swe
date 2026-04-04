@@ -19,6 +19,30 @@ let io = null;
 
 const history = new HistoryBuffer({ maxMs: 15 * 60 * 1000 });
 
+/** Последний snapshot + health для быстрого REST и демо без ожидания WebSocket */
+const currentStore = {
+  /** @type {{ snapshot: object, health: object } | null} */
+  lastOverall: null,
+  /** @type {Map<string, { snapshot: object, health: object }>} */
+  byComposite: new Map(),
+  /** @type {Map<string, { snapshot: object, health: object }>} */
+  byType: new Map(),
+  /** @type {Map<string, { snapshot: object, health: object }>} */
+  byLocomotiveId: new Map(),
+};
+
+/**
+ * @param {object} snapshot
+ * @param {object} health
+ */
+function rememberCurrent(snapshot, health) {
+  const pair = { snapshot, health };
+  currentStore.lastOverall = pair;
+  currentStore.byComposite.set(`${snapshot.locomotiveType}:${snapshot.locomotiveId}`, pair);
+  currentStore.byType.set(snapshot.locomotiveType, pair);
+  currentStore.byLocomotiveId.set(snapshot.locomotiveId, pair);
+}
+
 app.use(
   cors({
     origin: CLIENT_URL,
@@ -58,12 +82,39 @@ app.post('/api/telemetry/ingest', (req, res) => {
 
   history.push(ts, snapshot);
 
-  const health = computeHealthForClient(snapshot);
+
+  const health = computeHealthStub(snapshot);
+  rememberCurrent(snapshot, health);
 
   emitToAll(io, 'telemetry:update', { snapshot, health });
   emitToAll(io, 'health:update', health);
 
   res.status(202).json({ accepted: true, health });
+});
+
+/**
+ * Текущий snapshot (после ingest симулятора данные всегда актуальны).
+ * Query: locomotiveType, locomotiveId — можно вместе или по отдельности; без query — последний глобально.
+ */
+app.get('/api/current', (req, res) => {
+  const locomotiveType = typeof req.query.locomotiveType === 'string' ? req.query.locomotiveType.trim() : '';
+  const locomotiveId = typeof req.query.locomotiveId === 'string' ? req.query.locomotiveId.trim() : '';
+
+  let pair = null;
+  if (locomotiveType && locomotiveId) {
+    pair = currentStore.byComposite.get(`${locomotiveType}:${locomotiveId}`) ?? null;
+  } else if (locomotiveType) {
+    pair = currentStore.byType.get(locomotiveType) ?? null;
+  } else if (locomotiveId) {
+    pair = currentStore.byLocomotiveId.get(locomotiveId) ?? null;
+  } else {
+    pair = currentStore.lastOverall;
+  }
+
+  if (!pair) {
+    return res.status(404).json({ error: 'no snapshot' });
+  }
+  res.json({ snapshot: pair.snapshot, health: pair.health });
 });
 
 app.get('/api/history', (req, res) => {
