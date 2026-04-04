@@ -61,77 +61,55 @@ export function useCockpitData(locomotiveType) {
   const [history, setHistory] = useState([]);
   const [connected, setConnected] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const socketRef = useRef(null);
+  /** Алерты из alerts:update, пришедшие до первого snapshot (редкий порядок событий). */
+  const pendingAlertsRef = useRef(/** @type {unknown[] | null} */ (null));
 
   // Сброс при смене профиля
   useEffect(() => {
     setHistory([]);
     setLastPayload(null);
     setInitialLoading(true);
+    pendingAlertsRef.current = null;
   }, [locomotiveType]);
 
-  // Шаг 1: при монтировании запросить /api/current
+  // Стартовый снимок + алерты с backend REST (тот же состав, что в WebSocket)
   useEffect(() => {
     let cancelled = false;
+    const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
+    const params = new URLSearchParams({ locomotiveType, locomotiveId });
 
     async function fetchCurrent() {
       try {
+
         const res = await fetch(
           `${API_BASE}/api/current?locomotiveType=${locomotiveType}`
         );
         if (!res.ok) return; // 404 — нет данных, просто ждём сокет
+
         const json = await res.json();
         if (!cancelled && json.snapshot && json.health) {
-          setLastPayload(json);
-          const model = buildCockpitModel(locomotiveType, json.snapshot, json.health);
+          const alerts = Array.isArray(json.alerts)
+            ? json.alerts
+            : pendingAlertsRef.current ?? [];
+          pendingAlertsRef.current = null;
+          setLastPayload({
+            snapshot: json.snapshot,
+            health: json.health,
+            alerts,
+          });
+          const model = buildCockpitModel(locomotiveType, json.snapshot, json.health, alerts);
           if (model?.metrics) {
             setHistory([model.metrics]);
           }
         }
       } catch {
-        // API недоступен — ничего, сокет подхватит
+        /* сокет подхватит */
       } finally {
         if (!cancelled) setInitialLoading(false);
       }
     }
 
-    fetchCurrent();
-    return () => { cancelled = true; };
-  }, [locomotiveType]);
-
-  // Шаг 2: слушать сокет
-  useEffect(() => {
-    const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
-    const params = new URLSearchParams({ locomotiveType, locomotiveId });
-    let cancelled = false;
-
-    fetch(`${API_BASE}/api/current?${params}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        if (cancelled || !body?.snapshot || !body?.health) return;
-        setLastPayload((prev) => {
-          const prevMs = prev?.snapshot ? snapshotReceivedAtMs(prev.snapshot) : 0;
-          const nextMs = snapshotReceivedAtMs(body.snapshot);
-          if (prev && prevMs >= nextMs) return prev;
-          return {
-            snapshot: body.snapshot,
-            health: body.health,
-            alerts: body.alerts ?? [],
-          };
-        });
-        setHistory((prev) => {
-          if (prev.length > 0) return prev;
-          const model = buildCockpitModel(
-            locomotiveType,
-            body.snapshot,
-            body.health,
-            body.alerts
-          );
-          return model?.metrics ? [model.metrics] : [];
-        });
-      })
-      .catch(() => {});
-
+    void fetchCurrent();
     return () => {
       cancelled = true;
     };
@@ -139,18 +117,25 @@ export function useCockpitData(locomotiveType) {
 
   useEffect(() => {
     const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
-    socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
 
     socket.on('telemetry:update', (payload) => {
       setInitialLoading(false);
-      setLastPayload(payload);
+      const fromPayload = payload?.alerts;
+      const mergedAlerts = Array.isArray(fromPayload)
+        ? fromPayload
+        : pendingAlertsRef.current ?? [];
+      pendingAlertsRef.current = null;
+      setLastPayload({
+        ...payload,
+        alerts: mergedAlerts,
+      });
       const snap = payload?.snapshot;
       const health = payload?.health;
       if (!snap || !health) return;
-      const model = buildCockpitModel(locomotiveType, snap, health, payload?.alerts);
+      const model = buildCockpitModel(locomotiveType, snap, health, mergedAlerts);
       if (model?.metrics) {
         setHistory((prev) => [...prev, model.metrics].slice(-120));
       }
@@ -161,10 +146,14 @@ export function useCockpitData(locomotiveType) {
       if (!p?.locomotiveId || p.locomotiveType !== locomotiveType || p.locomotiveId !== expectedId) {
         return;
       }
+      const next = Array.isArray(p.alerts) ? p.alerts : [];
       setLastPayload((prev) => {
-        if (!prev?.snapshot) return prev;
+        if (!prev?.snapshot) {
+          pendingAlertsRef.current = next;
+          return prev;
+        }
         if (prev.snapshot.locomotiveId !== p.locomotiveId) return prev;
-        return { ...prev, alerts: Array.isArray(p.alerts) ? p.alerts : [] };
+        return { ...prev, alerts: next };
       });
     });
     return () => {
