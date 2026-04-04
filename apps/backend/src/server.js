@@ -147,17 +147,20 @@ app.post('/api/telemetry/ingest', (req, res) => {
     receivedAt: new Date().toISOString(),
   };
 
-  history.push(ts, snapshot);
+  const routeContext = computeRouteContext(snapshot, getScenario().scenario);
+  const snapshotWithRoute = { ...snapshot, routeContext };
+
+  history.push(ts, snapshotWithRoute);
 
   const compositeKey = `${locomotiveType}:${locomotiveId}`;
   const prevState = telemetryState.get(compositeKey) ?? null;
-  const { alerts: freshAlerts, nextState } = evaluateAlerts(snapshot, prevState);
+  const { alerts: freshAlerts, nextState } = evaluateAlerts(snapshotWithRoute, prevState);
   telemetryState.set(compositeKey, nextState);
 
   const activeAlerts = updateAlertsForLocomotive(locomotiveType, locomotiveId, freshAlerts);
 
-  const health = computeHealthForClient(snapshot);
-  rememberCurrent(snapshot, health, activeAlerts);
+  const health = computeHealthForClient(snapshotWithRoute);
+  rememberCurrent(snapshotWithRoute, health, activeAlerts);
 
   const alertsPayload = {
     locomotiveId,
@@ -166,7 +169,7 @@ app.post('/api/telemetry/ingest', (req, res) => {
     timestamp: snapshot.timestamp,
   };
 
-  emitToAll(io, 'telemetry:update', { snapshot, health, alerts: activeAlerts });
+  emitToAll(io, 'telemetry:update', { snapshot: snapshotWithRoute, health, alerts: activeAlerts });
   emitToAll(io, 'alerts:update', alertsPayload);
   emitToAll(io, 'health:update', health);
 

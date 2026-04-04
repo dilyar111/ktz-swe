@@ -4,6 +4,7 @@ import { useCockpitData } from '@/hooks/useCockpitData';
 import { MetricCards } from '@/components/cockpit/MetricCards';
 import { DigitalTwin } from '@/components/cockpit/DigitalTwin';
 import HealthBreakdownWidget from '@/components/HealthBreakdownWidget';
+import RouteContextWidget from '@/components/RouteContextWidget';
 import { cn } from '@/lib/utils';
 
 function healthStrokeClass(status) {
@@ -191,8 +192,12 @@ export default function Cockpit() {
                   </div>
                 ) : null}
 
-                <div className="mt-6 w-full max-w-lg">
+                <div className="mt-6 w-full max-w-lg space-y-4">
                   <HealthBreakdownWidget health={data.raw?.health} />
+                  <RouteContextWidget
+                    routeContext={data.routeContext}
+                    speedKmh={data.metrics?.speed}
+                  />
                 </div>
               </div>
             </div>
