@@ -12,6 +12,8 @@ out/
 .env
 .env.local
 .env.*.local
+*.pem
+secrets/
 
 # Logs
 logs/

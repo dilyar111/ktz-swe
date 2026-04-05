@@ -14,16 +14,15 @@
     "ml:train": "npm run train -w @ktz/ml",
     "ml:serve": "npm run serve -w @ktz/ml",
     "build": "npm run build -w @ktz/frontend",
-    "test": "npm run test -w @ktz/backend"
+    "test": "npm run test -w @ktz/backend",
+    "ci": "npm test && npm run build",
+    "smoke:api": "node scripts/ci-smoke-api.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
   },
   "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "recharts": "^3.8.1",
-    "swagger-ui-express": "^5.0.1"
+    "node": ">=18",
+    "npm": ">=9"
   }
 }

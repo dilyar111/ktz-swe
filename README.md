@@ -2,42 +2,64 @@
 
 > Real-time locomotive health monitoring: telemetry stream → health index → explainable alerts → replayable history → OpenAPI contracts.
 
-**Stack:** Node.js 18 · Express · Socket.IO · React + Vite · Docker Compose  
-**Monorepo:** npm workspaces (`apps/backend`, `apps/frontend`, `apps/simulator`)
+**Stack:** Node.js 20 LTS (see `.nvmrc`) · Express · Socket.IO · React + Vite · Docker Compose  
+**Monorepo:** npm workspaces (`apps/backend`, `apps/frontend`, `apps/simulator`, `ml`)
 
 ---
 
-## Quick start
+## Quick start (local dev)
 
-**Requirements:** Node.js 18+, npm 9+
+**Requirements:** Node.js **18+** (CI uses **20** — see `.nvmrc`), npm **9+**
 
 ```bash
-# 1. Install dependencies (once)
+git clone <repo-url> ktz-swe && cd ktz-swe
 npm install
+```
 
-# 2. Optional — copy env defaults (ports already match without it)
+Optional env (defaults work without it):
+
+```bash
 cp .env.example .env        # macOS / Linux
 copy .env.example .env      # Windows
-
-# 3. Start everything
-npm run dev
 ```
+
+**Recommended demo commands**
+
+| Goal | Command |
+|------|---------|
+| Full stack + ML risk API (needs Python + `pip install -r ml/requirements.txt`) | `npm run dev` |
+| Full stack **without** Python / ML | `npm run dev:no-ml` |
+| API + UI only (no simulator) | `npm run dev:stack` |
 
 | URL | Purpose |
 |-----|---------|
 | http://localhost:5173 | Landing → login (demo: `operator` / `demo` or `admin` / `demo`) → app |
 | http://localhost:5173/cockpit | Cockpit (requires login) |
-| http://localhost:5000/health | API health check |
-| http://localhost:5000/docs | Swagger / OpenAPI UI |
-| http://localhost:5000/openapi.json | Machine-readable spec |
+| http://localhost:5000/health | API liveness JSON `{ "status": "ok", ... }` |
+| http://localhost:5000/openapi.json | OpenAPI 3 JSON |
+| http://localhost:5000/docs/ | Swagger UI (trailing slash) |
 
-After startup the simulator sends telemetry at ~1 Hz; the frontend connects via Socket.IO and updates in real time (default profile: **KZ8A**).
+After startup the simulator sends telemetry at ~1 Hz (default profile **KZ8A** via `LOCOMOTIVE_TYPE` in `.env`). Align the **cockpit profile** in the header with the simulator (`KZ8A` / `TE33A`).
 
-**HK-034:** UI copy defaults to Russian (`I18nProvider` + `src/i18n/locales/`). Optional English: `localStorage.setItem('ktz_locale','en')` then reload. For hackathon demos, set **`VITE_DEMO_CONTROLS=true`** in root `.env` to show the scenario selector and channel-throughput readout to non-admin users; otherwise those are **admin-only**.
+**HK-034:** UI defaults to Russian. English: `localStorage.setItem('ktz_locale','en')` then reload. **`VITE_DEMO_CONTROLS=true`** in root `.env` shows the scenario selector to non-admin users.
 
 ---
 
-## Docker
+## Verify install (CI parity)
+
+From repo root:
+
+```bash
+npm test              # backend unit tests
+npm run build         # Vite production bundle
+node scripts/ci-smoke-api.js   # optional: needs free port (default 5000); use PORT=5059 node scripts/ci-smoke-api.js if 5000 is busy
+```
+
+---
+
+## Docker (single compose)
+
+Canonical stack — **no ML container** (ML is optional on the host).
 
 ```bash
 docker compose up --build
@@ -46,30 +68,34 @@ docker compose up --build
 | Service | Description |
 |---------|-------------|
 | `backend` | API + Socket.IO — http://localhost:5000 |
-| `frontend` | nginx-served production build — http://localhost:5173 |
-| `simulator` | Telemetry generator (~1 msg/s) |
+| `frontend` | nginx + static `dist` — http://localhost:5173 |
+| `simulator` | Telemetry POSTs to `http://backend:5000` |
 
-> For hot-reload development prefer `npm run dev`.
+Use the same `.env.example` variables; compose injects `BACKEND_URL` for the simulator.
+
+> Hot reload: prefer `npm run dev` or `npm run dev:no-ml` over Compose during development.
 
 ---
 
-## Scripts
+## Scripts (root)
 
 | Command | What it does |
-|---------|-------------|
-| `npm run dev` | Backend + frontend + simulator concurrently |
-| `npm run dev:stack` | Backend + frontend only (no simulator) |
-| `npm run build` | Production frontend bundle (`apps/frontend/dist/`) |
-| `npm test` | Unit tests — health engine + alert evaluation |
+|---------|--------------|
+| `npm run dev` | Backend + frontend + simulator + ML uvicorn (`:8001`) |
+| `npm run dev:no-ml` | Backend + frontend + simulator (no Python) |
+| `npm run dev:stack` | Backend + frontend only |
+| `npm run build` | Production frontend → `apps/frontend/dist/` |
+| `npm test` | Backend unit tests (`health` + `alerts`) |
+| `npm run ci` | `npm test` then `npm run build` |
+| `npm run smoke:api` | HTTP smoke: `/health`, `/openapi.json`, `/docs/` |
+| `npm run ml:train` | Train `ml/risk_model.joblib` from CSV |
+| `npm run ml:serve` | ML API only on port 8001 |
 
 ---
 
-## Running tests
+## CI (GitHub Actions)
 
-```bash
-npm test                          # all workspaces
-npm run test -w @ktz/backend      # backend only
-```
+On push/PR to `main` or `master`: `npm ci` → `npm test` → `npm run build` → `node scripts/ci-smoke-api.js` (port **5059**).
 
 ---
 
@@ -77,13 +103,16 @@ npm run test -w @ktz/backend      # backend only
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Liveness check |
-| GET | `/api/current` | Latest telemetry snapshot + health |
+| GET | `/health` | Liveness |
+| GET | `/openapi.json` | OpenAPI document |
+| GET | `/docs/` | Swagger UI |
+| GET | `/api/current` | Latest snapshot + health (404 if no telemetry for query) |
 | GET | `/api/history` | Paginated history (`limit`, `from`, `to`, `order`) |
 | GET | `/api/report` | Incident report — JSON or CSV (`format=json\|csv`) |
-| POST | `/api/telemetry` | Ingest a telemetry point |
+| GET | `/api/scenario` | Current demo scenario + `valid[]` list |
+| POST | `/api/telemetry` | Ingest telemetry |
 | POST | `/api/scenario` | Switch simulator scenario |
-| GET | `/docs` | Swagger UI |
+| PATCH | `/api/settings` | Admin tunables (weights/thresholds) |
 
 `/api/history` default order: **newest → oldest** (`order=desc`). Use `order=asc` for replay/charts.
 
@@ -95,17 +124,15 @@ npm run test -w @ktz/backend      # backend only
 .
 ├── apps/
 │   ├── backend/       Express API, Socket.IO, health engine, alerts
-│   ├── frontend/      React + Vite + Tailwind — Cockpit, Replay, Report
-│   └── simulator/     Telemetry generator (1 Hz default, ×10 highload mode)
-├── artifacts/
-│   └── datasets/      Synthetic CSV dataset (HK-020)
-├── docs/
-│   └── demo-script.md 5-minute demo + pitch checklist
-├── ml/
-│   └── hk020/         ML experiment artifacts
-├── .env.example       Environment variable reference
-├── docker-compose.yml Single-stack Docker definition
-└── package.json       Workspace root + npm scripts
+│   ├── frontend/      React + Vite + Tailwind
+│   └── simulator/     Telemetry generator
+├── ml/                HK-021 ML risk (FastAPI): train_risk_model.py, serve.py, artifacts
+├── scripts/           ci-smoke-api.js (HTTP smoke)
+├── artifacts/datasets/  Synthetic CSV (HK-020)
+├── docs/              demo-script.md
+├── .env.example       Canonical env reference
+├── docker-compose.yml
+└── package.json
 ```
 
 ---
@@ -139,16 +166,13 @@ In the UI, switch the profile in the header to match the simulator stream.
 
 | Layer | Status |
 |-------|--------|
-| Monorepo + `npm run dev` | ✅ ready |
-| Backend ingest, `/health`, `/api/history`, ring buffer | ✅ ready |
-| WebSocket `telemetry:update` `{ snapshot, health }` | ✅ ready |
-| Simulator 1 Hz, `LOCOMOTIVE_TYPE`, API-wait on start | ✅ ready |
-| Cockpit UI — live metrics, health ring, recommendations | ✅ ready |
-| Scenario control (normal / critical / highload) | ✅ ready |
-| Highload ×10 burst mode (`npm run highload -w @ktz/simulator`) | ✅ ready |
-| Replay UI + incident jump + range slider | ✅ ready |
-| Incident report (`/api/report`, JSON + CSV) | ✅ ready |
-| OpenAPI 3 + Swagger UI (`/docs`, `/openapi.json`) | ✅ ready |
-| Health engine + alert rule unit tests (`npm test`) | ✅ ready |
-| Synthetic dataset export (HK-020) | ✅ ready |
+| Monorepo + `npm run dev` / `dev:no-ml` | ✅ ready |
+| `npm test`, `npm run build`, CI smoke | ✅ ready |
+| Backend ingest, `/health`, `/api/history` | ✅ ready |
+| WebSocket `telemetry:update` | ✅ ready |
+| Simulator 1 Hz, `LOCOMOTIVE_TYPE` | ✅ ready |
+| Cockpit, replay, report | ✅ ready |
+| Docker Compose (backend + frontend + simulator) | ✅ ready |
+| OpenAPI + Swagger (`/openapi.json`, `/docs/`) | ✅ ready |
+| Optional ML (`ml/`, `GET /api/ml/risk`) | ✅ ready (host Python) |
 | PostgreSQL persistence | 🔜 not in hackathon scope |

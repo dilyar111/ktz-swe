@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node -e \"process.exit(0)\""
   },
   "dependencies": {
     "@ktz/shared": "^0.1.0",
