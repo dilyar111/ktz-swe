@@ -10,7 +10,7 @@ import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import AccessDenied from '@/pages/AccessDenied';
 import AdminSettings from '@/pages/AdminSettings';
-import IncidentsPage from '@/pages/IncidentsPage';
+import IncidentCenter from '@/pages/IncidentCenter';
 
 export default function App() {
   return (
@@ -22,13 +22,13 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/access-denied" element={<AccessDenied />} />
 
-            <Route element={<ProtectedLayout />}>
-              <Route path="/cockpit" element={<Cockpit />} />
-              <Route path="/alerts" element={<IncidentsPage />} />
-              <Route path="/history" element={<Replay />} />
-              <Route path="/report" element={<Report />} />
-              <Route path="/admin/settings" element={<AdminSettings />} />
-            </Route>
+          <Route element={<ProtectedLayout />}>
+            <Route path="/cockpit" element={<Cockpit />} />
+            <Route path="/alerts" element={<IncidentCenter />} />
+            <Route path="/history" element={<Replay />} />
+            <Route path="/report" element={<Report />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
+          </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

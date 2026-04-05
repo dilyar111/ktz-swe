@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -24,6 +25,7 @@ const NAV_CONFIG = [
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
+const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 /**
  * HK-032/034 — authenticated operational shell (dark). Demo scenario only for admin / demo flag.
@@ -34,6 +36,7 @@ export function AppShell() {
   const showDemoControls = useDemoControls();
   const navigate = useNavigate();
   const [locomotiveType, setLocomotiveType] = useState('KZ8A');
+  const [criticalCount, setCriticalCount] = useState(0);
 
   const navItems = useMemo(
     () =>
@@ -51,6 +54,29 @@ export function AppShell() {
         if (d && d.locomotiveType) setLocomotiveType(d.locomotiveType);
       })
       .catch(() => {});
+  }, []);
+
+  // Live critical alert badge via WebSocket
+  useEffect(() => {
+    const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
+    socket.on('alerts:update', (payload) => {
+      const crits = (payload?.alerts ?? []).filter(
+        (a) => !a.acked && a.severity === 'critical'
+      );
+      setCriticalCount(crits.length);
+    });
+    // Also poll once on mount
+    fetch(`${API_BASE}/api/alerts`)
+      .then((r) => r.json())
+      .then((d) => {
+        const crits = (d?.alerts ?? []).filter((a) => !a.acked && a.severity === 'critical');
+        setCriticalCount(crits.length);
+      })
+      .catch(() => {});
+    return () => {
+      socket.removeAllListeners();
+      socket.close();
+    };
   }, []);
 
   async function handleTypeChange(type) {
@@ -141,6 +167,15 @@ export function AppShell() {
             >
               <item.icon className="w-4 h-4 shrink-0" aria-hidden />
               <span className="hidden sm:inline">{item.label}</span>
+              {/* Live critical badge on Incident Center nav */}
+              {item.to === '/alerts' && criticalCount > 0 && (
+                <span
+                  className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-status-critical text-white text-[10px] font-bold flex items-center justify-center leading-none px-1 animate-pulse"
+                  title={`${criticalCount} критических инцидентов`}
+                >
+                  {criticalCount > 9 ? '9+' : criticalCount}
+                </span>
+              )}
             </NavLink>
           ))}
 
