@@ -51,7 +51,8 @@ const PROFILES = {
     name: "ТЭ33А",
     type: "diesel-electric",
     description: "Дизель-электрический локомотив серии Evolution",
-    subsystems: ["diesel", "traction", "brakes", "electrical", "signaling"],
+    /** Display order; health engine uses fixed five keys — thermal here maps to diesel/cooling telemetry. */
+    subsystems: ["traction", "brakes", "thermal", "electrical", "signaling"],
     fields: [
       { key: "speed",           label: "Скорость",               unit: "км/ч", subsystem: "traction"  },
       { key: "engine_rpm",      label: "Обороты дизеля",         unit: "об/мин", subsystem: "diesel"  },
@@ -80,8 +81,9 @@ const PROFILES = {
       signal_quality:   { warnLow: 60, critLow: 30 },
       fault_count:      { warn: 1,    crit: 3    },
     },
+    /** thermal = силовая установка (масло, ОЖ, ДВС) — тот же ключ подсистемы, что и в движке HK-004 */
     healthWeights: {
-      diesel:     0.35,
+      thermal:    0.35,
       traction:   0.25,
       brakes:     0.20,
       electrical: 0.12,

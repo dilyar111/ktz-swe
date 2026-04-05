@@ -5,16 +5,10 @@ import { useI18n } from '@/i18n/I18nContext';
 /** Fixed display order (matches backend engine). */
 const SUBSYSTEM_ORDER = ['traction', 'brakes', 'thermal', 'electrical', 'signaling'];
 
-/** Fallback if older API omits `weights` — mirrors apps/backend/src/health/profiles.js */
-const FALLBACK_WEIGHTS = {
-  KZ8A: { traction: 0.25, brakes: 0.2, thermal: 0.15, electrical: 0.3, signaling: 0.1 },
-  TE33A: { traction: 0.3, brakes: 0.25, thermal: 0.25, electrical: 0.1, signaling: 0.1 },
-};
-
+/** Weights always come from backend health payload (HK-033 single source). */
 function resolveWeights(health) {
   if (health?.weights && typeof health.weights === 'object') return health.weights;
-  const id = health?.profile === 'TE33A' ? 'TE33A' : 'KZ8A';
-  return FALLBACK_WEIGHTS[id];
+  return null;
 }
 
 function statusBarClass(status) {
@@ -33,6 +27,7 @@ export default function HealthBreakdownWidget({ health, className }) {
   const rows = useMemo(() => {
     if (!health?.subsystems) return null;
     const w = resolveWeights(health);
+    if (!w) return null;
     const list = [];
     for (const key of SUBSYSTEM_ORDER) {
       const sub = health.subsystems[key];
@@ -40,7 +35,10 @@ export default function HealthBreakdownWidget({ health, className }) {
       const weight = w[key];
       if (weight == null) continue;
       const contribution = sub.score * weight;
-      const label = t(`health.subsystem.${key}`) || key;
+      const label =
+        health.profile === 'TE33A' && key === 'thermal'
+          ? t('health.subsystem.thermalTe33a')
+          : t(`health.subsystem.${key}`) || key;
       list.push({
         key,
         label,
@@ -75,16 +73,6 @@ export default function HealthBreakdownWidget({ health, className }) {
   const maxWeight = useMemo(() => {
     if (!rows?.length) return 0;
     return Math.max(...rows.map((r) => r.weight));
-  }, [rows]);
-
-  const formulaParts = useMemo(() => {
-    if (!rows?.length) return '';
-    return rows.map((r) => `${r.label} (${r.score} × ${r.weight.toFixed(2)})`);
-  }, [rows]);
-
-  const sumRounded = useMemo(() => {
-    if (!rows?.length) return null;
-    return Math.round(rows.reduce((a, r) => a + r.contribution, 0));
   }, [rows]);
 
   if (!rows?.length) {
@@ -198,25 +186,10 @@ export default function HealthBreakdownWidget({ health, className }) {
         ))}
       </ul>
 
-      <div className="pt-2 border-t border-border space-y-2">
+      <div className="pt-2 border-t border-border">
         <p className="text-xs text-muted-foreground leading-relaxed">
           <span className="font-medium text-foreground/90">{t('healthBreakdown.footerLead')}</span>{' '}
           {t('healthBreakdown.footerBody')}
-        </p>
-        <p className="text-[11px] font-mono text-muted-foreground break-words leading-relaxed">
-          {formulaParts.join(' + ')}
-          {sumRounded != null ? (
-            <>
-              {' '}
-              ≈ <span className="text-foreground">{sumRounded}</span>
-              {totalScore != null && sumRounded !== totalScore ? (
-                <span className="text-muted-foreground">
-                  {' '}
-                  {t('healthBreakdown.fromApi', { value: String(totalScore) })}
-                </span>
-              ) : null}
-            </>
-          ) : null}
         </p>
       </div>
     </div>

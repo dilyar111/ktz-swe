@@ -28,15 +28,26 @@ function normalizeTelemetry(snapshot) {
   };
 
   const speed = num(snapshot.speedKmh ?? snapshot.speed, 0);
-  const engineTemp = num(
+  const typeEarly = String(snapshot.locomotiveType ?? 'KZ8A').toUpperCase();
+  /** TE33A: worst-case among engine / oil / coolant (diesel power unit). KZ8A: engine or oil as before. */
+  let engineTemp = num(
     snapshot.engineTempC ?? snapshot.engine_temp ?? snapshot.oilTempC,
     NaN
   );
+  if (typeEarly === 'TE33A') {
+    const oil = num(snapshot.oilTempC, NaN);
+    const cool = num(snapshot.coolantTempC, NaN);
+    const eng = num(snapshot.engineTempC, NaN);
+    const pool = [oil, cool, eng].filter((x) => Number.isFinite(x));
+    if (pool.length > 0) {
+      engineTemp = Math.max(...pool);
+    }
+  }
   const brakePressure = num(snapshot.brakePressureBar ?? snapshot.brake_pressure, NaN);
   const lineV = num(snapshot.lineVoltageV, NaN);
   const batV = num(snapshot.batteryVoltageV, NaN);
   const genV = num(snapshot.voltage, NaN);
-  const type = String(snapshot.locomotiveType ?? 'KZ8A').toUpperCase();
+  const type = typeEarly;
   const voltage =
     type === 'KZ8A'
       ? (Number.isFinite(lineV) ? lineV : genV)

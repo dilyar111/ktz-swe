@@ -4,7 +4,14 @@ import { useDemoControls } from '@/hooks/useDemoControls';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
 
-const FALLBACK_VALID = ['normal', 'critical', 'highload', 'brake_drop', 'signal_loss'];
+const FALLBACK_VALID = [
+  'normal',
+  'warning_overheat',
+  'critical',
+  'highload',
+  'brake_drop',
+  'signal_loss',
+];
 
 function scenarioOptionLabel(t, id) {
   if (!id || typeof id !== 'string') return '';

@@ -1,6 +1,6 @@
 /**
  * Brakes subsystem — pneumatic / brake pipe pressure vs safe minimum.
- * Weight in aggregate: 25%
+ * Threshold from settingsStore.thresholds.brake_pressure_crit (bar).
  */
 
 /** @param {number} score */
@@ -16,16 +16,20 @@ function clamp(score) {
 
 /** @param {Record<string, number|string>} input normalized telemetry */
 function computeBrakes(input) {
+  const { getSettings } = require('../../settingsStore');
+  const crit = Number(getSettings().thresholds.brake_pressure_crit);
+  const threshold = Number.isFinite(crit) ? crit : 4.5;
+
   let score = 100;
   /** @type {Array<{ name: string, impact: number, reason: string }>} */
   const contributors = [];
 
   const bp = input.brake_pressure;
-  if (Number.isFinite(bp) && bp < 4.5) {
+  if (Number.isFinite(bp) && bp < threshold) {
     contributors.push({
       name: 'Low brake pressure',
       impact: 25,
-      reason: 'Brake pressure below safe threshold (<4.5 bar) — verify brake pipe and reservoirs',
+      reason: `Brake pressure below safe threshold (<${threshold} bar) — verify brake pipe and reservoirs`,
     });
     score -= 25;
   }

@@ -102,7 +102,7 @@ describe('HK-004 health engine', () => {
   });
 
   /**
-   * Regression: weighted total must use profile weights (TE33A thermal weight 0.25 vs KZ8A 0.15).
+   * Regression: weighted total must use profile weights (TE33A thermal 0.35 vs KZ8A 0.20 from profiles).
    * If weights were accidentally uniform, total_score would often match across profiles for similar inputs.
    */
   it('regression: TE33A and KZ8A totals diverge for identical multi-subsystem stress', () => {

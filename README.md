@@ -110,12 +110,18 @@ npm run test -w @ktz/backend      # backend only
 
 ---
 
-## Locomotive profiles
+## Locomotive profiles (HK-033)
 
 | Profile | Switch |
 |---------|--------|
 | **KZ8A** (default) | `LOCOMOTIVE_TYPE=KZ8A` in `.env` |
 | **TE33A** | `LOCOMOTIVE_TYPE=TE33A` then restart |
+
+**Single source of truth:** `apps/backend/src/profiles/index.js` defines catalog fields, display thresholds, and default **healthWeights** (five subsystems: `traction`, `brakes`, `thermal`, `electrical`, `signaling`). Runtime tunables (`/api/settings`) are initialized from those defaults via `profileDefaults.js`. Alert rules and thermal/brake **health** subsystems read the same numeric thresholds from `settingsStore` as `evaluateAlerts`.
+
+**TE33A semantics:** subsystem key `thermal` represents the diesel power unit (oil / coolant / engine temps). Normalized telemetry uses **max(oil, coolant, engine)** °C for rule evaluation. **KZ8A** uses line voltage (V) for electrical; **TE33A** uses auxiliary/battery voltage bands in the electrical subsystem.
+
+**Scenarios:** simulator and API accept the same set (including `warning_overheat`); see `GET /api/scenario` → `valid`.
 
 In the UI, switch the profile in the header to match the simulator stream.
 

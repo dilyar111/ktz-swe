@@ -2,6 +2,7 @@
 
 const VALID_SCENARIOS = Object.freeze([
   'normal',
+  'warning_overheat',
   'critical',
   'highload',
   'brake_drop',

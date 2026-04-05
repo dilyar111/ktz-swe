@@ -86,19 +86,33 @@ export default function Replay() {
   const [scrubIdx, setScrubIdx] = useState(0);
 
   const chartData = useMemo(() => {
+    const isTe = locomotiveType === 'TE33A';
     return rawEntries.map((e) => {
       const snap = e.payload && typeof e.payload === 'object' ? e.payload : {};
       const h = e.health && typeof e.health === 'object' ? e.health : {};
+      const oil = Number(snap.oilTempC);
+      const cool = Number(snap.coolantTempC);
+      const eng = Number(snap.engineTempC);
+      const thermalDisplay = isTe
+        ? [oil, cool, eng].filter((x) => Number.isFinite(x)).length > 0
+          ? Math.max(
+              ...[oil, cool, eng].filter((x) => Number.isFinite(x))
+            )
+          : 0
+        : Number(snap.engineTempC ?? snap.oilTempC ?? 0);
       return {
         t: e.ts,
         label: formatAxisTime(e.ts),
         health: Number(h.total_score ?? h.score ?? 0),
         speed: Number(snap.speedKmh ?? snap.speed ?? 0),
-        temp: Number(snap.engineTempC ?? snap.oilTempC ?? 0),
+        temp: thermalDisplay,
         brake: Number(snap.brakePressureBar ?? snap.brake_pressure ?? 0),
+        lineVoltage: Number(snap.lineVoltageV ?? 0),
+        fuelLevel: Number(snap.fuelLevelPct ?? 0),
+        auxVoltage: Number(snap.voltage ?? snap.batteryVoltageV ?? 0),
       };
     });
-  }, [rawEntries]);
+  }, [rawEntries, locomotiveType]);
 
   const loadHistory = useCallback(async () => {
     setLoading(true);
@@ -296,7 +310,9 @@ export default function Replay() {
                   <div className="text-lg font-semibold tabular-nums">{atScrub.speed.toFixed(1)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">{t('replay.temp')}</span>
+                  <span className="text-muted-foreground">
+                    {locomotiveType === 'TE33A' ? t('replay.tempTe33a') : t('replay.temp')}
+                  </span>
                   <div className="text-lg font-semibold tabular-nums">{atScrub.temp.toFixed(1)}</div>
                 </div>
                 <div>
@@ -344,12 +360,22 @@ export default function Replay() {
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               {t('replay.params')}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { key: 'speed', labelKey: 'replay.chartSpeedLong', color: 'hsl(199 89% 48%)' },
-                { key: 'temp', labelKey: 'replay.chartTempLong', color: 'hsl(25 95% 53%)' },
-                { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 60%)' },
-              ].map((spec) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(
+                locomotiveType === 'TE33A'
+                  ? [
+                      { key: 'speed', labelKey: 'replay.chartSpeedLong', color: 'hsl(199 89% 48%)' },
+                      { key: 'temp', labelKey: 'replay.chartTempTe33aLong', color: 'hsl(25 95% 53%)' },
+                      { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 60%)' },
+                      { key: 'fuelLevel', labelKey: 'replay.chartFuelLong', color: 'hsl(142 55% 42%)' },
+                    ]
+                  : [
+                      { key: 'speed', labelKey: 'replay.chartSpeedLong', color: 'hsl(199 89% 48%)' },
+                      { key: 'temp', labelKey: 'replay.chartTempLong', color: 'hsl(25 95% 53%)' },
+                      { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 60%)' },
+                      { key: 'lineVoltage', labelKey: 'replay.chartLineVoltageLong', color: 'hsl(48 96% 53%)' },
+                    ]
+              ).map((spec) => (
                 <div
                   key={spec.key}
                   className="rounded-xl border border-border bg-card p-2 min-h-[200px] flex flex-col"

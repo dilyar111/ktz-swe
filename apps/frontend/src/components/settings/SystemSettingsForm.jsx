@@ -5,6 +5,9 @@ import { useI18n } from '@/i18n/I18nContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
 
+/** Must match backend HK-033 health subsystem keys. */
+const WEIGHT_KEYS = ['traction', 'brakes', 'thermal', 'electrical', 'signaling'];
+
 /**
  * Health weights + alert thresholds editor (shared by admin settings page).
  */
@@ -130,7 +133,10 @@ export default function SystemSettingsForm({ className }) {
                   {profile}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {Object.entries(settings.weights[profile]).map(([key, value]) => (
+                  {WEIGHT_KEYS.map((key) => {
+                    const value = settings.weights[profile]?.[key];
+                    if (value == null) return null;
+                    return (
                     <div key={key} className="space-y-1.5">
                       <label className="text-xs font-medium text-foreground tracking-wide capitalize">
                         {key}
@@ -145,7 +151,8 @@ export default function SystemSettingsForm({ className }) {
                         className="w-full h-8 px-3 rounded-md border border-border bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                       />
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

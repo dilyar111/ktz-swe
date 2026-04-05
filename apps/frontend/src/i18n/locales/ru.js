@@ -86,6 +86,7 @@ export default {
     recommendationSource: { alert: 'Алерт', health: 'Здоровье', scenario: 'Сценарий' },
     scenarios: {
       normal: 'Норма',
+      warning_overheat: 'Предупреждение: перегрев',
       critical: 'Критический перегрев',
       highload: 'Высокая нагрузка',
       brake_drop: 'Падение тормозов',
@@ -97,6 +98,8 @@ export default {
       traction: 'Тяга',
       brakes: 'Тормоза',
       thermal: 'Тепло',
+      /** TE33A — тот же вес подсистемы «thermal», иная подпись для оператора */
+      thermalTe33a: 'Силовая установка (ДВС)',
       electrical: 'Электрика',
       signaling: 'Сигнализация',
     },
@@ -175,6 +178,7 @@ export default {
     params: 'Ключевые параметры',
     speed: 'Скорость, км/ч',
     temp: 'Температура, °C',
+    tempTe33a: 'max(масло, ОЖ, ДВС), °C',
     brake: 'Тормоза, бар',
     loading: 'Загрузка окна…',
     empty: 'Нет данных за выбранное окно. Запустите симулятор и обновите.',
@@ -187,7 +191,10 @@ export default {
     timelineScrub: 'Позиция на таймлайне',
     chartSpeedLong: 'Скорость (км/ч)',
     chartTempLong: 'Температура двигателя (°C)',
+    chartTempTe33aLong: 'Тепло силовой установки (max °C)',
     chartBrakeLong: 'Давление тормозов (бар)',
+    chartFuelLong: 'Уровень топлива (%)',
+    chartLineVoltageLong: 'Напряжение КС (В)',
   },
   report: {
     title: 'Отчёт по инциденту',

@@ -1,6 +1,7 @@
 'use strict';
 
 const { computeHealthForClient } = require('../health');
+const { getProfile } = require('../profiles/index');
 
 /**
  * @param {{ ts?: number, payload?: object }} entry
@@ -149,6 +150,7 @@ function buildIncidentReport(deps, q) {
 
   const recommendationsSummary = [...recSet].slice(0, 12);
 
+  const profileCatalog = getProfile(String(locomotiveType || '').toUpperCase());
   return {
     meta: {
       generatedAt: new Date().toISOString(),
@@ -157,6 +159,8 @@ function buildIncidentReport(deps, q) {
       from: new Date(fromMs).toISOString(),
       to: new Date(toMs).toISOString(),
       sampleCount: rows.length,
+      profileDescription: profileCatalog?.description ?? null,
+      healthWeights: lastHealth?.weights ?? null,
     },
     healthSummary,
     activeAlertsSnapshot,
