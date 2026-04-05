@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import {
   CartesianGrid,
   Line,
@@ -53,14 +53,31 @@ function formatAxisTime(ts) {
 }
 
 export default function Replay() {
-  const { locomotiveType } = useOutletContext();
+  const { locomotiveType: outletLocomotiveType } = useOutletContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
+  const typeParam = searchParams.get('locomotiveType');
+  const idParam = searchParams.get('locomotiveId');
+
+  const locomotiveType = typeParam?.trim() || outletLocomotiveType;
+  const locomotiveId =
+    idParam?.trim() || DEFAULT_LOCOMOTIVE_ID[locomotiveType] || DEFAULT_LOCOMOTIVE_ID.KZ8A;
+
+  const incidentWindow = useMemo(() => {
+    if (fromParam == null || toParam == null) return null;
+    const from = Number(fromParam);
+    const to = Number(toParam);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
+    return { from, to };
+  }, [fromParam, toParam]);
+
   const [windowMin, setWindowMin] = useState(15);
   const [rawEntries, setRawEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [scrubIdx, setScrubIdx] = useState(0);
-
-  const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
 
   const chartData = useMemo(() => {
     return rawEntries.map((e) => {
@@ -80,8 +97,15 @@ export default function Replay() {
   const loadHistory = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
-    const to = Date.now();
-    const from = to - windowMin * 60 * 1000;
+    let from;
+    let to;
+    if (incidentWindow) {
+      from = incidentWindow.from;
+      to = incidentWindow.to;
+    } else {
+      to = Date.now();
+      from = to - windowMin * 60 * 1000;
+    }
     const params = new URLSearchParams({
       from: String(from),
       to: String(to),
@@ -105,7 +129,27 @@ export default function Replay() {
     } finally {
       setLoading(false);
     }
-  }, [locomotiveType, locomotiveId, windowMin]);
+  }, [locomotiveType, locomotiveId, windowMin, incidentWindow]);
+
+  const clearIncidentWindowParams = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('from');
+        next.delete('to');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
+
+  const selectRollingWindow = useCallback(
+    (min) => {
+      setWindowMin(min);
+      if (incidentWindow) clearIncidentWindowParams();
+    },
+    [incidentWindow, clearIncidentWindowParams]
+  );
 
   useEffect(() => {
     void loadHistory();
@@ -138,13 +182,25 @@ export default function Replay() {
               {'GET /api/history?includeHealth=1&order=asc'}
             </code>
           </p>
+          {incidentWindow ? (
+            <p className="text-xs text-primary mt-2 max-w-xl">
+              Окно задано из инцидента: {formatAxisTime(incidentWindow.from)} — {formatAxisTime(incidentWindow.to)}.
+              <button
+                type="button"
+                onClick={() => clearIncidentWindowParams()}
+                className="ml-2 underline underline-offset-2 hover:text-foreground"
+              >
+                Перейти на «живое» окно
+              </button>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {WINDOW_OPTIONS.map((w) => (
             <button
               key={w.min}
               type="button"
-              onClick={() => setWindowMin(w.min)}
+              onClick={() => selectRollingWindow(w.min)}
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs font-medium border transition-colors',
                 windowMin === w.min

@@ -18,6 +18,7 @@ const { normalizeTelemetry } = require('../health/normalize');
  * @property {string} recommendation
  * @property {string} timestamp
  * @property {string} locomotiveType
+ * @property {string} [locomotiveId]
  */
 
 /**
@@ -42,6 +43,7 @@ function makeAlert(fields) {
     recommendation: fields.recommendation,
     timestamp: fields.timestamp,
     locomotiveType: fields.locomotiveType,
+    locomotiveId: fields.locomotiveId ?? '',
   };
 }
 
@@ -78,6 +80,7 @@ function dedupeByCode(alerts) {
 function evaluateAlerts(snapshot, prev) {
   const input = normalizeTelemetry(snapshot);
   const locomotiveType = input.locomotiveType;
+  const locomotiveIdStr = String(snapshot.locomotiveId ?? '');
   const ts =
     typeof snapshot.timestamp === 'string' && snapshot.timestamp
       ? snapshot.timestamp
@@ -102,6 +105,7 @@ function evaluateAlerts(snapshot, prev) {
             'Снизьте тягу и нагрузку, проверьте контур охлаждения, уровень охлаждающей жидкости и работу вентилятора.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     } else if (temp > settings.engine_temp_warn) {
@@ -116,6 +120,7 @@ function evaluateAlerts(snapshot, prev) {
             'Снизьте нагрузку, наблюдайте за трендом температуры; при росте — подготовьтесь к остановке для осмотра.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     }
@@ -135,6 +140,7 @@ function evaluateAlerts(snapshot, prev) {
             'Проверьте плотность тормозной магистрали, состояние компрессора и резервуаров; не начинайте движение без нормализации давления.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     } else if (bp >= settings.brake_pressure_crit && prev && Number.isFinite(prev.brake_pressure)) {
@@ -151,6 +157,7 @@ function evaluateAlerts(snapshot, prev) {
             'Проверьте утечки в тормозной системе, клапаны УР и состояние воздухопроводов; при повторении — снизьте скорость и будьте готовы к остановке.',
             timestamp: ts,
             locomotiveType,
+            locomotiveId: locomotiveIdStr,
           })
         );
       }
@@ -172,6 +179,7 @@ function evaluateAlerts(snapshot, prev) {
             'Немедленно снизьте скорость соблюдением торможения; учитывайте профиль пути и сигнализацию.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     } else if (speed > limit * settings.speed_margin_warn) {
@@ -185,6 +193,7 @@ function evaluateAlerts(snapshot, prev) {
           recommendation: 'Заранее снизьте ход, чтобы удерживать запас до ограничения.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     }
@@ -205,6 +214,7 @@ function evaluateAlerts(snapshot, prev) {
             'Снизьте позицию контроллера, проверьте отсутствие заклинивания осей и состояние ВИП/инвертора по диагностике.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     } else if (prev && Number.isFinite(prev.current)) {
@@ -221,6 +231,7 @@ function evaluateAlerts(snapshot, prev) {
               'Проверьте стабильность контакта токоприёмника, отсутствие рывков нагрузки и журнал событий привода.',
             timestamp: ts,
             locomotiveType,
+            locomotiveId: locomotiveIdStr,
           })
         );
       }
@@ -237,6 +248,7 @@ function evaluateAlerts(snapshot, prev) {
             'Проверьте цепи управления тягой, снятие блокировок и достоверность датчиков тока.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     }
@@ -256,6 +268,7 @@ function evaluateAlerts(snapshot, prev) {
             'Проверьте антенны, канал связи и шкафы СЦБ; при нестабильности — снизьте скорость до восстановления связи.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     } else if (sq < settings.signal_quality_warn) {
@@ -269,6 +282,7 @@ function evaluateAlerts(snapshot, prev) {
           recommendation: 'Запланируйте проверку радиоканала и помех; следите за обновлением кабины.',
           timestamp: ts,
           locomotiveType,
+          locomotiveId: locomotiveIdStr,
         })
       );
     }
@@ -299,6 +313,7 @@ function evaluateAlerts(snapshot, prev) {
           'Подключите диагностический терминал, зафиксируйте коды ECM/TCU, проверьте блокировки и условия сброса; не игнорируйте повторяющиеся коды.',
         timestamp: ts,
         locomotiveType,
+        locomotiveId: locomotiveIdStr,
       })
     );
   }

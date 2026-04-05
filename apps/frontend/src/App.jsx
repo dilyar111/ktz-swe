@@ -2,22 +2,9 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Cockpit from './pages/Cockpit';
+import IncidentCenter from './pages/IncidentCenter';
 import Replay from './pages/Replay';
 import Report from './pages/Report';
-
-function Placeholder({ title }) {
-  return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="text-center space-y-2">
-        <h1 className="text-xl font-bold text-foreground">{title}</h1>
-        <p className="text-sm text-muted-foreground max-w-md">
-          Заготовка маршрута. Реализация в следующих ветках: feature/HK-007-replay,
-          feature/HK-008-report-export.
-        </p>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   return (
@@ -25,7 +12,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Cockpit />} />
-          <Route path="alerts" element={<Placeholder title="Incident Center" />} />
+          <Route path="alerts" element={<IncidentCenter />} />
           <Route path="history" element={<Replay />} />
           <Route path="report" element={<Report />} />
         </Route>
