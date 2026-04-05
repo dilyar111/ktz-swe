@@ -9,6 +9,7 @@ import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import AccessDenied from '@/pages/AccessDenied';
 import AdminSettings from '@/pages/AdminSettings';
+import IncidentCenter from '@/pages/IncidentCenter';
 
 export default function App() {
   return (
@@ -21,19 +22,7 @@ export default function App() {
 
           <Route element={<ProtectedLayout />}>
             <Route path="/cockpit" element={<Cockpit />} />
-            <Route
-              path="/alerts"
-              element={
-                <div className="flex items-center justify-center min-h-[50vh] px-4">
-                  <div className="text-center space-y-2 max-w-md">
-                    <h1 className="text-xl font-bold text-foreground">Incident Center</h1>
-                    <p className="text-sm text-muted-foreground">
-                      Заготовка маршрута. Реализация в следующих ветках.
-                    </p>
-                  </div>
-                </div>
-              }
-            />
+            <Route path="/alerts" element={<IncidentCenter />} />
             <Route path="/history" element={<Replay />} />
             <Route path="/report" element={<Report />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
