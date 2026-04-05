@@ -10,20 +10,6 @@ import Login from '@/pages/Login';
 import AccessDenied from '@/pages/AccessDenied';
 import AdminSettings from '@/pages/AdminSettings';
 
-function Placeholder({ title }) {
-  return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="text-center space-y-2">
-        <h1 className="text-xl font-bold text-foreground">{title}</h1>
-        <p className="text-sm text-muted-foreground max-w-md">
-          Заготовка маршрута. Реализация в следующих ветках: feature/HK-007-replay,
-          feature/HK-008-report-export.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <AuthProvider>
