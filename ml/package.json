@@ -1,0 +1,10 @@
+{
+  "name": "@ktz/ml",
+  "private": true,
+  "version": "0.1.0",
+  "description": "HK-021 supplementary ML risk API (FastAPI)",
+  "scripts": {
+    "train": "python train_risk_model.py",
+    "serve": "python -m uvicorn serve:app --host 127.0.0.1 --port 8001"
+  }
+}

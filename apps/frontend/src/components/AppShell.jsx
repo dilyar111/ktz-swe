@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
+import { API_BASE, WS_URL, createSocketIo, waitForBackendHealth } from '@/lib/socketIo';
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -23,9 +23,6 @@ const NAV_CONFIG = [
   { to: '/history', labelKey: 'shell.nav.history', icon: History, end: false },
   { to: '/report', labelKey: 'shell.nav.report', icon: FileText, end: false },
 ];
-
-const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 /**
  * HK-032/034 — authenticated operational shell (dark). Demo scenario only for admin / demo flag.
@@ -58,7 +55,16 @@ export function AppShell() {
 
   // Live critical alert badge via WebSocket
   useEffect(() => {
-    const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
+    let cancelled = false;
+    const ac = new AbortController();
+    const socket = createSocketIo(WS_URL);
+
+    (async () => {
+      await waitForBackendHealth({ signal: ac.signal });
+      if (cancelled) return;
+      socket.connect();
+    })();
+
     socket.on('alerts:update', (payload) => {
       const crits = (payload?.alerts ?? []).filter(
         (a) => !a.acked && a.severity === 'critical'
@@ -74,6 +80,8 @@ export function AppShell() {
       })
       .catch(() => {});
     return () => {
+      cancelled = true;
+      ac.abort();
       socket.removeAllListeners();
       socket.close();
     };

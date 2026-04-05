@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { io } from 'socket.io-client';
-
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
-
-const API_BASE = import.meta.env.VITE_API_URL || WS_URL;
+import { API_BASE, WS_URL, createSocketIo, waitForBackendHealth } from '@/lib/socketIo';
 
 /** HK-019 — if no telemetry for this long while socket is up, treat as stale (simulator stopped, etc.). */
 export const STALE_TELEMETRY_MS = 8000;
@@ -194,7 +190,15 @@ export function useCockpitData(locomotiveType, options = {}) {
   );
 
   useEffect(() => {
-    const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
+    let cancelled = false;
+    const ac = new AbortController();
+    const socket = createSocketIo(WS_URL);
+
+    (async () => {
+      await waitForBackendHealth({ signal: ac.signal });
+      if (cancelled) return;
+      socket.connect();
+    })();
 
     socket.on('connect', () => {
       setConnected(true);
@@ -257,6 +261,8 @@ export function useCockpitData(locomotiveType, options = {}) {
       });
     });
     return () => {
+      cancelled = true;
+      ac.abort();
       if (trackThroughput) {
         socket.off('telemetry:throughput', onThroughput);
       }

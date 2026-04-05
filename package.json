@@ -4,11 +4,15 @@
   "version": "0.1.0",
   "description": "KTZ hackathon — Locomotive Digital Twin (monorepo): ingest, history, WebSocket, cockpit UI",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "ml"
   ],
   "scripts": {
-    "dev": "concurrently -n backend,frontend,sim -c blue,green,magenta \"npm run dev -w @ktz/backend\" \"npm run dev -w @ktz/frontend\" \"npm run dev -w @ktz/simulator\"",
+    "dev": "concurrently -n backend,frontend,sim,ml -c blue,green,magenta,cyan \"npm run dev -w @ktz/backend\" \"npm run dev -w @ktz/frontend\" \"npm run dev -w @ktz/simulator\" \"npm run serve -w @ktz/ml\"",
+    "dev:no-ml": "concurrently -n backend,frontend,sim -c blue,green,magenta \"npm run dev -w @ktz/backend\" \"npm run dev -w @ktz/frontend\" \"npm run dev -w @ktz/simulator\"",
     "dev:stack": "concurrently -n backend,frontend -c blue,green \"npm run dev -w @ktz/backend\" \"npm run dev -w @ktz/frontend\"",
+    "ml:train": "npm run train -w @ktz/ml",
+    "ml:serve": "npm run serve -w @ktz/ml",
     "build": "npm run build -w @ktz/frontend",
     "test": "npm run test -w @ktz/backend"
   },

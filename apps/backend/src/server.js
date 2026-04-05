@@ -261,13 +261,14 @@ app.get('/api/ml/risk', async (req, res) => {
     });
     if (!r.ok) {
       const text = await r.text();
-      return res.status(503).json({ mlAvailable: false, error: text || `ML HTTP ${r.status}` });
+      // 200 so DevTools does not treat optional ML as a failed HTTP request; clients use mlAvailable.
+      return res.status(200).json({ mlAvailable: false, error: text || `ML HTTP ${r.status}` });
     }
     const json = await r.json();
     return res.json({ mlAvailable: true, ...json });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return res.status(503).json({ mlAvailable: false, error: msg });
+    return res.status(200).json({ mlAvailable: false, error: msg });
   }
 });
 

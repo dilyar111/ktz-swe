@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
+import { API_BASE, WS_URL, createSocketIo, waitForBackendHealth } from '@/lib/socketIo';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,10 +19,6 @@ import {
 } from 'lucide-react';
 import { cn, SeverityIcon } from '@/lib/utils';
 import { useI18n } from '@/i18n/I18nContext';
-
-const API_BASE =
-  import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 'http://localhost:5000';
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 const DEFAULT_LOCOMOTIVE_ID = {
   KZ8A: 'KZ8A-DEMO-01',
@@ -221,8 +217,16 @@ export default function IncidentCenter() {
   }, [loadAlerts]);
 
   useEffect(() => {
-    const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
+    let cancelled = false;
+    const ac = new AbortController();
+    const socket = createSocketIo(WS_URL);
     socketRef.current = socket;
+
+    (async () => {
+      await waitForBackendHealth({ signal: ac.signal });
+      if (cancelled) return;
+      socket.connect();
+    })();
 
     socket.on('connect', () => setLiveConnected(true));
     socket.on('disconnect', () => setLiveConnected(false));
@@ -255,6 +259,8 @@ export default function IncidentCenter() {
     });
 
     return () => {
+      cancelled = true;
+      ac.abort();
       socket.removeAllListeners();
       socket.io.off('reconnect_attempt');
       socket.close();

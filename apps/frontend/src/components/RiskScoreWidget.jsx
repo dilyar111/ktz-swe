@@ -5,7 +5,7 @@ import { SeverityIcon } from '@/lib/utils';
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 const POLL_MS = 5000;
-/** After any failure (HTTP 503, network, invalid body) — do not hammer the API. */
+/** After hard failure (network, non-JSON) or mlAvailable: false — do not hammer the API. */
 const BACKOFF_MS = 60000;
 
 /** Align with --status-* tokens (approximate hex for canvas/SVG-free bar) */
