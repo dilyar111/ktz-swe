@@ -152,7 +152,7 @@ export default function Report() {
   const hs = report?.healthSummary;
 
   return (
-    <div className="max-w-[960px] mx-auto space-y-6">
+    <div className="max-w-[1600px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('report.title')}</h1>
@@ -184,7 +184,7 @@ export default function Report() {
           <button
             type="button"
             onClick={() => void loadPreview()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-secondary"
+            className="ktz-op-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-secondary"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
             {t('report.refreshPreview')}
@@ -192,7 +192,7 @@ export default function Report() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">{t('report.windowParams')}</p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -263,7 +263,7 @@ export default function Report() {
       ) : null}
 
       {loading && !report ? (
-        <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm font-mono">
+        <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm">
           {t('report.loading')}
         </div>
       ) : null}
@@ -388,12 +388,18 @@ export default function Report() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground font-mono">
-            <span className="inline-flex items-center gap-1.5 text-foreground/80">
-              <Download className="w-3.5 h-3.5" />
-              {t('report.exportFooter')}
-            </span>
-          </div>
+          {showDev ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 text-foreground/80">
+                <Download className="w-3.5 h-3.5" />
+                {t('report.exportFooter')}
+              </span>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground">
+              {t('report.exportFooterOperator')}
+            </div>
+          )}
         </>
       ) : null}
     </div>

@@ -34,15 +34,15 @@ export function RecommendationsPanel({ recommendations = [], healthStatus = 'nor
 
   return (
     <section
-      className="rounded-xl border border-emerald-600/20 bg-gradient-to-br from-emerald-950/20 via-card to-card p-4 shadow-sm"
+      className="rounded-xl border border-emerald-600/25 bg-gradient-to-br from-emerald-50/90 via-card to-card p-4 shadow-sm"
       aria-label={t('cockpit.recommendationsAria')}
     >
       <div className="flex items-center gap-2 mb-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
           <Lightbulb className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <h3 className="font-semibold text-sm uppercase tracking-wider text-emerald-800/90 dark:text-emerald-300/90">
+          <h3 className="font-semibold text-sm uppercase tracking-wider text-emerald-900/90">
             {t('cockpit.recommendationsHeading')}
           </h3>
           <p className="text-[11px] text-muted-foreground">{t('cockpit.recommendationsSubtitle')}</p>
@@ -77,7 +77,7 @@ export function RecommendationsPanel({ recommendations = [], healthStatus = 'nor
                         ? 'bg-status-critical/20 text-status-critical'
                         : r.severity === 'warning'
                           ? 'bg-status-warning/20 text-status-warning'
-                          : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-emerald-500/15 text-emerald-800'
                     )}
                   >
                     <SeverityIcon severity={r.severity} />

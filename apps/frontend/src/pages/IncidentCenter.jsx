@@ -15,10 +15,11 @@ import {
   ShieldAlert,
   ShieldCheck,
   Clock,
-  Zap,
+  Activity,
 } from 'lucide-react';
 import { cn, SeverityIcon } from '@/lib/utils';
 import { useI18n } from '@/i18n/I18nContext';
+import { useDemoControls } from '@/hooks/useDemoControls';
 
 const DEFAULT_LOCOMOTIVE_ID = {
   KZ8A: 'KZ8A-DEMO-01',
@@ -124,7 +125,7 @@ function AckToast({ message, onDismiss }) {
   }, [onDismiss]);
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/40 bg-card shadow-2xl shadow-black/40 text-sm font-medium animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-card shadow-xl shadow-slate-900/10 text-sm font-medium animate-in slide-in-from-bottom-4 duration-300">
       <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
       <span>{message}</span>
       <button type="button" onClick={onDismiss} className="ml-2 text-muted-foreground hover:text-foreground">
@@ -139,6 +140,7 @@ function AckToast({ message, onDismiss }) {
  */
 export default function IncidentCenter() {
   const { t } = useI18n();
+  const showDemoControls = useDemoControls();
   const navigate = useNavigate();
   const socketRef = useRef(null);
 
@@ -358,7 +360,7 @@ export default function IncidentCenter() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5">
+    <div className="max-w-[1600px] mx-auto space-y-6">
       {toast && <AckToast message={toast} onDismiss={() => setToast(null)} />}
 
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -390,9 +392,11 @@ export default function IncidentCenter() {
               )}
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{t('incidents.pageSubtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            {showDemoControls ? t('incidents.subtitle') : t('incidents.pageSubtitleShort')}
+          </p>
           {lastUpdatedAt ? (
-            <p className="text-xs text-muted-foreground/60 mt-0.5 font-mono">
+            <p className="text-xs text-muted-foreground/70 mt-0.5">
               {t('incidents.lastUpdated')}: {timeAgoRelative(new Date(lastUpdatedAt).toISOString())}
             </p>
           ) : null}
@@ -404,7 +408,7 @@ export default function IncidentCenter() {
             setLoading(true);
             void loadAlerts();
           }}
-          className="inline-flex items-center gap-2 self-start px-3 py-2 rounded-lg text-sm font-medium border border-border bg-background hover:bg-secondary transition-colors"
+          className="ktz-op-btn inline-flex items-center gap-2 self-start px-3 py-2 rounded-lg text-sm font-medium border border-border bg-background hover:bg-secondary transition-colors"
         >
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} aria-hidden />
           {t('incidents.refresh')}
@@ -433,7 +437,7 @@ export default function IncidentCenter() {
       ) : null}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label={t('incidents.statTotal')} value={stats.total} icon={Zap} />
+        <StatCard label={t('incidents.statTotal')} value={stats.total} icon={Activity} />
         <StatCard
           label={t('incidents.statCriticalLabel')}
           value={stats.critical}
@@ -450,7 +454,7 @@ export default function IncidentCenter() {
         <StatCard label={t('incidents.statUnackedLabel')} value={stats.unacked} icon={Clock} />
       </div>
 
-      <div className="rounded-xl border border-border bg-card px-4 py-3">
+      <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
           <span className="inline-flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider shrink-0">
             <Filter className="w-3.5 h-3.5" aria-hidden />
@@ -545,7 +549,7 @@ export default function IncidentCenter() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-[240px] gap-3 text-muted-foreground text-sm font-mono">
+        <div className="flex items-center justify-center min-h-[240px] gap-3 text-muted-foreground text-sm">
           <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-hidden />
           {t('incidents.loading')}
         </div>
@@ -562,8 +566,8 @@ export default function IncidentCenter() {
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
             {alerts.length === 0 ? t('incidents.emptyNoAlertsBody') : t('incidents.emptyHint')}
           </p>
-          {alerts.length === 0 ? (
-            <p className="text-xs text-muted-foreground/60 font-mono">{t('incidents.emptySimulatorHint')}</p>
+          {alerts.length === 0 && showDemoControls ? (
+            <p className="text-xs text-muted-foreground/60">{t('incidents.emptySimulatorHint')}</p>
           ) : null}
         </div>
       ) : null}

@@ -245,10 +245,10 @@ export default function Replay() {
               {w.label}
             </button>
           ))}
-          <button
-            type="button"
+            <button
+              type="button"
             onClick={() => void loadHistory()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-secondary"
+            className="ktz-op-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-secondary"
           >
             <RefreshCw className="w-3.5 h-3.5" aria-hidden />
             {t('replay.refresh')}
@@ -292,7 +292,7 @@ export default function Replay() {
               <button
                 type="button"
                 onClick={() => setScrubIdx(incidentIdx)}
-                className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-2 rounded-lg text-sm font-medium border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 min-h-[44px] sm:min-h-0"
+                className="ktz-op-btn inline-flex items-center gap-2 self-start sm:self-auto px-3 py-2 rounded-lg text-sm font-medium border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 min-h-[44px] sm:min-h-0"
               >
                 <SkipBack className="w-4 h-4" aria-hidden />
                 {t('replay.incidentBtn')}
@@ -329,8 +329,8 @@ export default function Replay() {
                 </div>
               </div>
             ) : null}
-            {replayHealthDelta != null ? (
-              <p className="text-xs text-violet-600 dark:text-violet-400 border-t border-border pt-2 mt-2 leading-relaxed">
+            {showDev && replayHealthDelta != null ? (
+              <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2 leading-relaxed">
                 {t('replay.intelligenceDelta', { delta: String(replayHealthDelta > 0 ? '+' : '') + replayHealthDelta })}
               </p>
             ) : null}

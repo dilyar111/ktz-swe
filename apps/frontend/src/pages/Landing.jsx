@@ -1,75 +1,116 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, ArrowRight } from 'lucide-react';
+import { ArrowRight, Bell, Gauge, History, Shield } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/i18n/I18nContext';
+import { PublicFooter, PublicHeader } from '@/components/public/PublicChrome';
+
+const HERO_BG = '/branding/landing-hero.webp';
 
 /**
- * HK-034 — public landing (light KTZ corporate shell).
+ * HK-037 — corporate landing: hero, transport visual, value cards, KTZ relevance, shared public chrome.
  */
 export default function Landing() {
   const { user } = useAuth();
   const { t } = useI18n();
 
+  const valueSpecs = [
+    { icon: Gauge, k: '1' },
+    { icon: Bell, k: '2' },
+    { icon: History, k: '3' },
+    { icon: Shield, k: '4' },
+  ];
+
   return (
     <div className="ktz-public min-h-screen bg-background text-foreground flex flex-col">
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-ktz-blue/90 to-ktz-blue flex items-center justify-center shadow-sm border border-ktz-blue/30">
-            <Zap className="w-5 h-5 text-white" aria-hidden />
-          </div>
-          <div>
-            <span className="text-sm font-semibold tracking-tight text-foreground">{t('public.brandShort')}</span>
-            <span className="text-muted-foreground text-sm"> · </span>
-            <span className="text-sm font-medium text-muted-foreground">{t('public.brandTwin')}</span>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
-      <main className="flex-1 flex flex-col justify-center px-6 py-12 sm:py-20">
-        <div className="max-w-2xl mx-auto w-full space-y-10">
-          <div className="space-y-5">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-ktz-blue font-semibold">
-              {t('public.landingKicker')}
-            </p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground leading-tight tracking-tight">
-              {t('public.landingTitle')}
-            </h1>
-            <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-xl">
-              {t('public.landingBody')}
-            </p>
-          </div>
+      <main className="flex-1 flex flex-col">
+        <section className="relative overflow-hidden border-b border-border">
+          <div
+            className="absolute inset-0 bg-cover bg-center scale-105"
+            style={{ backgroundImage: `url(${HERO_BG})` }}
+            aria-hidden
+          />
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-background via-background/92 to-ktz-blue/[0.18]"
+            aria-hidden
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" aria-hidden />
 
-          <div className="flex flex-col sm:flex-row gap-4 sm:items-center pt-2">
-            {user ? (
-              <Link
-                to="/cockpit"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-ktz-blue px-8 py-3.5 text-sm font-semibold text-white shadow-md hover:opacity-95 transition-opacity border border-ktz-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-gold focus-visible:ring-offset-2"
-              >
-                {t('public.ctaApp')}
-                <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-ktz-blue px-8 py-3.5 text-sm font-semibold text-white shadow-md hover:opacity-95 transition-opacity border border-ktz-blue/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-gold focus-visible:ring-offset-2"
-              >
-                {t('public.ctaLogin')}
-                <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
-            )}
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-sm border-l-2 border-ktz-gold/60 pl-4">
-              {t('public.demoHint')}
-            </p>
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 md:py-24">
+            <div className="max-w-2xl space-y-6">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-ktz-blue font-semibold">
+                {t('public.landingKicker')}
+              </p>
+              <h1 className="text-3xl sm:text-4xl md:text-[2.35rem] font-bold text-foreground leading-[1.12] tracking-tight">
+                {t('public.landingTitle')}
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
+                {t('public.heroLead')}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center pt-2">
+                {user ? (
+                  <Link
+                    to="/cockpit"
+                    className="ktz-btn-primary inline-flex items-center justify-center gap-2 px-8 py-3.5 text-sm font-semibold"
+                  >
+                    {t('public.ctaApp')}
+                    <ArrowRight className="w-4 h-4" aria-hidden />
+                  </Link>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="ktz-btn-primary inline-flex items-center justify-center gap-2 px-8 py-3.5 text-sm font-semibold"
+                  >
+                    {t('public.ctaLogin')}
+                    <ArrowRight className="w-4 h-4" aria-hidden />
+                  </Link>
+                )}
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-sm border-l-2 border-ktz-gold/70 pl-4">
+                  {t('public.demoHint')}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-16 w-full">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+            {valueSpecs.map(({ icon: Icon, k }) => (
+              <div
+                key={k}
+                className="rounded-xl border border-border bg-card p-5 shadow-sm hover:border-ktz-blue/25 hover:shadow-md transition-all"
+              >
+                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-ktz-blue/10 text-ktz-blue border border-ktz-blue/15">
+                  <Icon className="h-5 w-5" aria-hidden />
+                </div>
+                <h2 className="text-sm font-semibold text-foreground leading-snug">
+                  {t(`public.value${k}Title`)}
+                </h2>
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {t(`public.value${k}Body`)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-y border-border bg-gradient-to-br from-ktz-blue/[0.06] via-card/80 to-ktz-gold/[0.06]">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16">
+            <div className="max-w-3xl">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+                {t('public.whyTitle')}
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
+                {t('public.whyBody')}
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
 
-      <footer className="border-t border-border py-8 px-6 bg-card/50">
-        <p className="max-w-5xl mx-auto text-center text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
-          {t('public.footer')}
-        </p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

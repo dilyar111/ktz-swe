@@ -32,7 +32,7 @@ export default function IntelligenceInsightWidget({ intelligence, className }) {
       ? 'border-status-critical/40 bg-status-critical/[0.07] text-status-critical'
       : band === 'medium'
         ? 'border-status-warning/40 bg-status-warning/[0.08] text-status-warning'
-        : 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-400';
+        : 'border-emerald-500/30 bg-emerald-50 text-emerald-800';
 
   function metricLabel(key) {
     const k = `intelligence.metric.${key}`;
@@ -43,13 +43,13 @@ export default function IntelligenceInsightWidget({ intelligence, className }) {
   return (
     <section
       className={cn(
-        'rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-950/25 via-card to-card p-4 shadow-sm space-y-3',
+        'rounded-xl border border-violet-400/30 bg-gradient-to-br from-violet-50/90 via-card to-card p-4 shadow-sm space-y-3',
         className
       )}
       aria-label={t('intelligence.aria')}
     >
       <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-600 dark:text-violet-400">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-700">
           <Brain className="h-4 w-4" aria-hidden />
         </span>
         <div>
@@ -92,7 +92,7 @@ export default function IntelligenceInsightWidget({ intelligence, className }) {
             <span
               className={cn(
                 'font-mono tabular-nums font-medium',
-                intelligence.healthScoreDelta5m < 0 ? 'text-status-warning' : 'text-emerald-600 dark:text-emerald-400'
+                intelligence.healthScoreDelta5m < 0 ? 'text-status-warning' : 'text-emerald-700'
               )}
             >
               {intelligence.healthScoreDelta5m > 0 ? '+' : ''}

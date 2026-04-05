@@ -19,9 +19,9 @@ function statusBarClass(status) {
 
 /**
  * HK-009 — Explain subsystem scores vs total health (weighted sum).
- * @param {{ health: Record<string, unknown> | null | undefined, className?: string }} props
+ * @param {{ health: Record<string, unknown> | null | undefined, className?: string, detailed?: boolean }} props
  */
-export default function HealthBreakdownWidget({ health, className }) {
+export default function HealthBreakdownWidget({ health, className, detailed = false }) {
   const { t } = useI18n();
 
   const rows = useMemo(() => {
@@ -83,8 +83,14 @@ export default function HealthBreakdownWidget({ health, className }) {
           className
         )}
       >
-        {t('healthBreakdown.emptyPrefix')}{' '}
-        <code className="font-mono">{t('healthBreakdown.emptyCode')}</code> {t('healthBreakdown.emptySuffix')}
+        {detailed ? (
+          <>
+            {t('healthBreakdown.emptyPrefix')} <code className="font-mono">{t('healthBreakdown.emptyCode')}</code>{' '}
+            {t('healthBreakdown.emptySuffix')}
+          </>
+        ) : (
+          t('healthBreakdown.emptyOperator')
+        )}
       </div>
     );
   }
@@ -111,12 +117,14 @@ export default function HealthBreakdownWidget({ health, className }) {
           <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/90">
             {t('healthBreakdown.title')}
           </h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('healthBreakdown.profile')}:{' '}
-            <span className="font-mono text-foreground/80">{health.profile ?? '—'}</span>
-          </p>
+          {detailed ? (
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('healthBreakdown.profile')}:{' '}
+              <span className="font-mono text-foreground/80">{health.profile ?? '—'}</span>
+            </p>
+          ) : null}
         </div>
-        {totalScore != null ? (
+        {totalScore != null && detailed ? (
           <div className="text-right">
             <div className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-0">
               <span className="text-2xl font-bold font-mono tabular-nums text-foreground leading-none">
@@ -132,7 +140,7 @@ export default function HealthBreakdownWidget({ health, className }) {
         {rows.map((r) => (
           <li
             key={r.key}
-            title={rowTooltip(r)}
+            title={detailed ? rowTooltip(r) : undefined}
             className={cn(
               'rounded-lg border px-2 py-2 -mx-2 transition-colors',
               worstKey === r.key && highestImpactKey === r.key
@@ -153,45 +161,67 @@ export default function HealthBreakdownWidget({ health, className }) {
                 />
               </div>
               <span className="w-8 text-right font-mono tabular-nums">{r.score}</span>
-              <span className="text-muted-foreground font-mono text-xs w-[44px]">
-                ({Math.round(r.weight * 100)}%)
-              </span>
+              {detailed ? (
+                <span className="text-muted-foreground font-mono text-xs w-[44px]">
+                  ({Math.round(r.weight * 100)}%)
+                </span>
+              ) : null}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1.5 pl-[88px]">
-              {r.status === 'warning' || r.status === 'critical' ? (
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-0.5 mr-2 font-semibold uppercase text-[10px] tracking-wide',
-                    r.status === 'critical' ? 'text-status-critical' : 'text-status-warning'
-                  )}
-                >
-                  <SeverityIcon severity={r.status} />
-                  {t(`cockpit.severity.${r.status}`)}
-                </span>
-              ) : null}
-              {t('healthBreakdown.contributionLine')}{' '}
-              <span className="font-mono text-foreground/80 tabular-nums">{r.contribution.toFixed(1)}</span>
-              {worstKey === r.key ? (
-                <span className="ml-2 text-status-warning text-[10px] uppercase tracking-wide">
-                  {t('healthBreakdown.minScore')}
-                </span>
-              ) : null}
-              {highestImpactKey === r.key ? (
-                <span className="ml-2 text-primary text-[10px] uppercase tracking-wide">
-                  {t('healthBreakdown.maxContribution')}
-                </span>
-              ) : null}
-            </p>
+            {detailed ? (
+              <p className="text-[11px] text-muted-foreground mt-1.5 pl-[88px]">
+                {r.status === 'warning' || r.status === 'critical' ? (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-0.5 mr-2 font-semibold uppercase text-[10px] tracking-wide',
+                      r.status === 'critical' ? 'text-status-critical' : 'text-status-warning'
+                    )}
+                  >
+                    <SeverityIcon severity={r.status} />
+                    {t(`cockpit.severity.${r.status}`)}
+                  </span>
+                ) : null}
+                {t('healthBreakdown.contributionLine')}{' '}
+                <span className="font-mono text-foreground/80 tabular-nums">{r.contribution.toFixed(1)}</span>
+                {worstKey === r.key ? (
+                  <span className="ml-2 text-status-warning text-[10px] uppercase tracking-wide">
+                    {t('healthBreakdown.minScore')}
+                  </span>
+                ) : null}
+                {highestImpactKey === r.key ? (
+                  <span className="ml-2 text-primary text-[10px] uppercase tracking-wide">
+                    {t('healthBreakdown.maxContribution')}
+                  </span>
+                ) : null}
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-1.5 pl-[88px]">
+                {r.status === 'warning' || r.status === 'critical' ? (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-0.5 font-semibold uppercase text-[10px] tracking-wide',
+                      r.status === 'critical' ? 'text-status-critical' : 'text-status-warning'
+                    )}
+                  >
+                    <SeverityIcon severity={r.status} />
+                    {t(`cockpit.severity.${r.status}`)}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/80">{t('healthBreakdown.rowStatusOk')}</span>
+                )}
+              </p>
+            )}
           </li>
         ))}
       </ul>
 
-      <div className="pt-2 border-t border-border">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          <span className="font-medium text-foreground/90">{t('healthBreakdown.footerLead')}</span>{' '}
-          {t('healthBreakdown.footerBody')}
-        </p>
-      </div>
+      {detailed ? (
+        <div className="pt-2 border-t border-border">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground/90">{t('healthBreakdown.footerLead')}</span>{' '}
+            {t('healthBreakdown.footerBody')}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

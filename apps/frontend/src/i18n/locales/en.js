@@ -23,10 +23,22 @@ export default {
     landingTitle: 'Locomotive digital twin',
     landingBody:
       'Live telemetry, health index, alerts with guidance, and event review — one workspace for dispatch and engineering.',
+    heroLead:
+      'One workspace for dispatch and engineering: live HI, guided alerts, replay, and exportable reports — aligned with KTZ operations.',
     ctaLogin: 'Sign in',
     ctaApp: 'Open console',
     demoHint: 'Demo: operator or admin, password demo',
     footer: 'Kazakhstan Temir Zholy — internal prototype',
+    footerBrandLine: 'KTZ · Digital Twin',
+    footerCorporate:
+      'Operational visibility for locomotive health, incidents, and audit-ready reporting. Internal demonstration interface.',
+    footerNavLabel: 'Corporate links',
+    footerLinks: {
+      link1: 'Corporate portal',
+      link2: 'Safety & compliance',
+      link3: 'Contacts',
+    },
+    brandTagline: 'Operations console',
     loginTitle: 'Sign in',
     loginSubtitle: 'Demo accounts: operator / admin, password demo',
     loginUser: 'Username',
@@ -38,6 +50,17 @@ export default {
     loginError: 'Sign-in failed',
     brandShort: 'KTZ',
     brandTwin: 'Digital Twin',
+    value1Title: 'Live health index',
+    value1Body: 'A single score from traction, thermal, brakes, electrical, and signaling — updated with every telemetry frame.',
+    value2Title: 'Guided alerts',
+    value2Body: 'Severity-ranked incidents with operator recommendations and acknowledgement workflow.',
+    value3Title: 'Replay & history',
+    value3Body: 'Scrub timelines around an event to see how HI and key parameters evolved.',
+    value4Title: 'Reports & evidence',
+    value4Body: 'Exportable window summaries for handover, compliance, and post-incident review.',
+    whyTitle: 'Why this matters for KTZ',
+    whyBody:
+      'Faster incident response, safer runs, and traceable decisions across dispatch and engineering — with a consistent view of locomotive state.',
   },
   connection: {
     online: 'Online',
@@ -48,6 +71,7 @@ export default {
   },
   cockpit: {
     alertsTitle: 'Alerts',
+    alertsEmpty: 'No active alerts for this locomotive context.',
     healthIndex: 'Health index',
     staleBanner: 'Telemetry paused — last sample {{seconds}} s ago (expected within {{limitSec}} s).',
     loadingReconnect: 'Reconnecting…',
@@ -129,6 +153,8 @@ export default {
     maxContribution: 'max. contribution',
     footerLead: 'Result',
     footerBody: '— weighted sum of subsystem scores (same as the cockpit index).',
+    emptyOperator: 'Subsystem breakdown appears when full health data is available from the service.',
+    rowStatusOk: 'Within expected range',
     fromApi: '(from API: {{value}})',
     rowTooltipWeight: '{{label}}: profile weight {{pct}}%, contribution ≈ {{contrib}}.',
     rowTooltipHeaviest: 'Largest weight in profile — strongest effect on the index.',
@@ -245,6 +271,7 @@ export default {
     noRecommendations: 'No highlighted recommendations.',
     exportFooter:
       'Export needs no code changes: same parameters as preview (format=json|csv).',
+    exportFooterOperator: 'Exports use the same time window and locomotive context as the summary above.',
   },
   systemSettings: {
     loadError: 'Could not load settings from the server.',
@@ -298,6 +325,7 @@ export default {
     livePolling: 'Polling',
     pageSubtitle:
       'Operator investigation and incident handling. Click a row for details.',
+    pageSubtitleShort: 'Triage, acknowledge, and open replay or report for the selected locomotive context.',
     statTotal: 'Total alerts',
     statCriticalLabel: 'Critical',
     statWarningLabel: 'Warnings',

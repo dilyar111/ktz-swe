@@ -13,8 +13,6 @@ const COLOR_GREEN = '#2eb87c';
 const COLOR_AMBER = '#d97706';
 const COLOR_RED = '#e11d48';
 
-const BG = '#1e2330';
-
 /**
  * @param {{ riskScore: number }} p
  */
@@ -103,10 +101,7 @@ export default function RiskScoreWidget({ locoType, locomotiveId }) {
 
   if (loading) {
     return (
-      <div
-        className="rounded-lg border border-border/80 p-3 w-full max-w-[260px] animate-pulse"
-        style={{ backgroundColor: BG, fontSize: 11 }}
-      >
+      <div className="rounded-lg border border-border bg-card p-3 w-full max-w-[260px] text-[11px] animate-pulse shadow-sm">
         <p className="text-muted-foreground">{t('risk.loading')}</p>
       </div>
     );
@@ -114,16 +109,13 @@ export default function RiskScoreWidget({ locoType, locomotiveId }) {
 
   if (data === null) {
     return (
-      <div
-        className="rounded-lg border border-border/80 p-3 w-full max-w-[260px]"
-        style={{ backgroundColor: BG, fontSize: 11 }}
-      >
+      <div className="rounded-lg border border-border bg-card p-3 w-full max-w-[260px] text-[11px] shadow-sm">
         <div className="flex items-center justify-between gap-2">
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{t('risk.label')}</span>
+          <span className="text-muted-foreground">{t('risk.label')}</span>
           <span className="text-muted-foreground font-mono tabular-nums">—</span>
         </div>
         <p className="text-muted-foreground leading-snug mt-2">{t('risk.unavailable')}</p>
-        <p className="text-[10px] text-muted-foreground/60 mt-2">{t('risk.subtitle')}</p>
+        <p className="text-[10px] text-muted-foreground/80 mt-2">{t('risk.subtitle')}</p>
       </div>
     );
   }
@@ -135,34 +127,33 @@ export default function RiskScoreWidget({ locoType, locomotiveId }) {
   const factors = Array.isArray(data.topFactors) ? data.topFactors : [];
 
   return (
-    <div
-      className="rounded-lg border border-border/80 p-3 w-full max-w-[260px] space-y-2"
-      style={{ backgroundColor: BG }}
-    >
+    <div className="rounded-lg border border-border bg-card p-3 w-full max-w-[260px] space-y-2 text-[11px] shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{t('risk.label')}</span>
+        <span className="text-muted-foreground">{t('risk.label')}</span>
         <span
           className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-medium"
-          style={{ backgroundColor: `${badge.color}22`, color: badge.color }}
+          style={{ backgroundColor: `${badge.color}18`, color: badge.color }}
         >
           <SeverityIcon severity={badge.severity} />
           {badge.text}
         </span>
       </div>
       <div className="flex items-baseline gap-2">
-        <span style={{ fontSize: 20, fontWeight: 700, color: barColor }}>{pct}%</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{t('risk.riskWord')}</span>
+        <span className="text-xl font-bold tabular-nums" style={{ color: barColor }}>
+          {pct}%
+        </span>
+        <span className="text-muted-foreground">{t('risk.riskWord')}</span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+      <div className="h-2 rounded-full overflow-hidden bg-muted">
         <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: barColor }} />
       </div>
       {factors.length > 0 ? (
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 1.35 }}>
+        <p className="text-foreground/85 leading-snug">
           <span className="text-muted-foreground">{t('risk.factorsPrefix')} </span>
           {factors.join(', ')}
         </p>
       ) : null}
-      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{t('risk.subtitle')}</p>
+      <p className="text-[10px] text-muted-foreground/80">{t('risk.subtitle')}</p>
     </div>
   );
 }

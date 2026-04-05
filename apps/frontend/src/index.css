@@ -3,54 +3,40 @@
 @tailwind utilities;
 
 @layer base {
-  /* Operational UI (cockpit, replay, reports) — dark industrial */
+  /* KTZ — единая светлая тема: лендинг, логин и операторский контур */
   :root {
-    --background: 222 44% 7%;
-    --foreground: 210 36% 96%;
-    --card: 222 42% 9%;
-    --card-foreground: 210 36% 96%;
-    --popover: 222 42% 9%;
-    --popover-foreground: 210 36% 96%;
-    /* KTZ-inspired brand blue for primary actions / nav emphasis */
-    --primary: 210 78% 46%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217 28% 16%;
-    --secondary-foreground: 210 36% 90%;
-    --muted: 217 28% 13%;
-    --muted-foreground: 215 18% 58%;
-    /* Gold accent — highlights, secondary CTAs */
-    --accent: 43 72% 48%;
-    --accent-foreground: 222 47% 8%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 96%;
-    --border: 217 28% 18%;
-    --input: 217 28% 16%;
-    --ring: 210 78% 50%;
-    --radius: 0.5rem;
-    --status-ok: 152 65% 42%;
-    /* Darker amber/orange vs bright yellow — better contrast on dark UI, distinct from critical red */
-    --status-warning: 38 92% 46%;
-    --status-critical: 0 76% 50%;
-    --status-info: 210 78% 52%;
-    --panel: 222 44% 6%;
-    --panel-elevated: 222 40% 11%;
-    --ktz-blue: 210 78% 42%;
-    --ktz-gold: 43 72% 48%;
-  }
-
-  /* Public shell (landing / login) — light, corporate */
-  .ktz-public {
     --background: 210 25% 98%;
     --foreground: 222 35% 14%;
     --card: 0 0% 100%;
     --card-foreground: 222 35% 14%;
-    --muted-foreground: 215 16% 42%;
-    --border: 210 20% 88%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 35% 14%;
     --primary: 210 78% 38%;
     --primary-foreground: 210 40% 99%;
+    --secondary: 210 18% 93%;
+    --secondary-foreground: 222 32% 18%;
+    --muted: 210 16% 92%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 43 72% 44%;
+    --accent-foreground: 222 35% 14%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
     --ring: 210 78% 42%;
+    --radius: 0.5rem;
+    --status-ok: 152 55% 34%;
+    --status-warning: 32 92% 40%;
+    --status-critical: 0 72% 46%;
+    --status-info: 210 78% 40%;
+    --panel: 210 22% 96%;
+    --panel-elevated: 0 0% 100%;
     --ktz-blue: 210 82% 36%;
     --ktz-gold: 43 72% 44%;
+  }
+
+  /* Маркетинговые страницы — тот же токен-набор, можно задать шрифт отдельно */
+  .ktz-public {
     font-family: system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
   }
 
@@ -60,7 +46,18 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: system-ui, Segoe UI, Roboto, sans-serif;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  }
+
+  .ktz-public .ktz-btn-primary {
+    @apply rounded-lg bg-ktz-blue text-white border border-ktz-blue/25 shadow-md transition-colors;
+    @apply hover:opacity-95 active:opacity-90;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .ktz-op-btn {
+    @apply rounded-lg font-medium transition-colors;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-gold/90 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
 

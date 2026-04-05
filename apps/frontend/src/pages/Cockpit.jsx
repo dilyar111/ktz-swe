@@ -63,7 +63,9 @@ export default function Cockpit() {
       ? t('cockpit.emptyWsReconnect')
       : connectionStatus === 'connecting'
         ? t('cockpit.emptyWsConnect')
-        : `${t('cockpit.emptyWs')} (${wsUrl}).`;
+        : showDemoControls
+          ? `${t('cockpit.emptyWs')} (${wsUrl}).`
+          : t('cockpit.emptyWs');
 
   function severityLabel(sev) {
     if (sev == null || sev === '') return '';
@@ -145,7 +147,7 @@ export default function Cockpit() {
             healthStatus={data.healthStatus}
           />
 
-          <IntelligenceInsightWidget intelligence={data.intelligence} />
+          {showDemoControls ? <IntelligenceInsightWidget intelligence={data.intelligence} /> : null}
 
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 lg:col-span-3">
@@ -200,8 +202,8 @@ export default function Cockpit() {
                     ))}
                   </ul>
                 ) : (
-                  <div className="min-h-[120px] text-sm text-muted-foreground" aria-hidden>
-                    —
+                  <div className="min-h-[120px] flex items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-8 text-sm text-muted-foreground text-center">
+                    {t('cockpit.alertsEmpty')}
                   </div>
                 )}
               </div>
@@ -281,11 +283,13 @@ export default function Cockpit() {
                 ) : null}
 
                 <div className="mt-6 w-full max-w-lg space-y-4">
-                  <HealthBreakdownWidget health={data.raw?.health} />
-                  <RiskScoreWidget
-                    locoType={locomotiveType}
-                    locomotiveId={data.raw?.snapshot?.locomotiveId}
-                  />
+                  <HealthBreakdownWidget health={data.raw?.health} detailed={showDemoControls} />
+                  {showDemoControls ? (
+                    <RiskScoreWidget
+                      locoType={locomotiveType}
+                      locomotiveId={data.raw?.snapshot?.locomotiveId}
+                    />
+                  ) : null}
                   <RouteContextWidget
                     routeContext={data.routeContext}
                     speedKmh={data.metrics?.speed}
@@ -315,7 +319,7 @@ export default function Cockpit() {
         <div className="flex flex-col items-center justify-center min-h-[240px] gap-3 text-muted-foreground text-sm text-center px-4">
           <ConnectionStatusBadge status={connectionStatus} className="text-xs" />
           <p className="max-w-md leading-relaxed">{emptyWsPlain}</p>
-          {connectionStatus === 'offline' ? (
+          {showDemoControls && connectionStatus === 'offline' ? (
             <p className="text-xs text-muted-foreground/90">{t('cockpit.emptyWsHint')}</p>
           ) : null}
         </div>

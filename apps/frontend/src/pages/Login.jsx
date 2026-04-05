@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { Zap, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
+import { PublicFooter, PublicHeader } from '@/components/public/PublicChrome';
 
 export default function Login() {
   const { login, user } = useAuth();
@@ -36,21 +37,18 @@ export default function Login() {
 
   return (
     <div className="ktz-public min-h-screen bg-background text-foreground flex flex-col">
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="max-w-md mx-auto px-6 h-14 flex items-center justify-between">
+      <PublicHeader
+        right={
           <Link
             to="/"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-blue rounded"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-blue/50 rounded px-1"
           >
             {t('public.backHome')}
           </Link>
-          <div className="w-9 h-9 rounded-lg bg-ktz-blue/10 flex items-center justify-center border border-ktz-blue/25">
-            <Zap className="w-4 h-4 text-ktz-blue" aria-hidden />
-          </div>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="flex-1 flex items-center justify-center px-6 py-12">
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-12">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('public.loginTitle')}</h1>
@@ -83,7 +81,7 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 className={cn(
                   'w-full h-11 px-3 rounded-md border border-border bg-background text-sm text-foreground',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-blue/60'
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-blue/55 focus-visible:border-ktz-blue/40'
                 )}
                 placeholder={t('public.loginUserPlaceholder')}
               />
@@ -101,22 +99,21 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 className={cn(
                   'w-full h-11 px-3 rounded-md border border-border bg-background text-sm text-foreground',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-blue/60'
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-blue/55 focus-visible:border-ktz-blue/40'
                 )}
                 placeholder={t('public.loginPassPlaceholder')}
               />
             </div>
 
-            <button
-              type="submit"
-              className="w-full h-11 rounded-lg bg-ktz-blue text-white text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-95 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ktz-gold focus-visible:ring-offset-2"
-            >
+            <button type="submit" className="ktz-btn-primary w-full h-11 text-sm font-semibold flex items-center justify-center gap-2">
               <LogIn className="w-4 h-4" aria-hidden />
               {t('public.loginSubmit')}
             </button>
           </form>
         </div>
       </main>
+
+      <PublicFooter />
     </div>
   );
 }

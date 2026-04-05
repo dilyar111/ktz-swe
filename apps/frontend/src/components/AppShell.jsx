@@ -7,10 +7,10 @@ import {
   History,
   FileText,
   Settings,
-  Zap,
   LogOut,
   Shield,
 } from 'lucide-react';
+import KtzLogo from '@/components/KtzLogo';
 import { cn } from '@/lib/utils';
 import ScenarioControl from '@/components/ScenarioControl';
 import { useAuth } from '@/context/AuthContext';
@@ -110,8 +110,8 @@ export function AppShell() {
       <header className="min-h-16 border-b border-border bg-panel-elevated flex flex-wrap items-center justify-between gap-y-2 px-4 lg:px-6 py-2 sticky top-0 z-50">
         <div className="flex items-center gap-4 lg:gap-6 min-w-0 flex-1">
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 rounded-md bg-primary/15 flex items-center justify-center border border-primary/40">
-              <Zap className="w-5 h-5 text-primary" aria-hidden />
+            <div className="w-9 h-9 rounded-md bg-primary/12 flex items-center justify-center border border-primary/35 p-1">
+              <KtzLogo size="sm" className="rounded-sm" alt="" />
             </div>
             <div className="min-w-0 hidden sm:block">
               <h1 className="text-sm font-bold leading-none tracking-tight truncate text-foreground">
@@ -130,7 +130,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => handleTypeChange('KZ8A')}
                 className={cn(
-                  'px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
+                  'ktz-op-btn px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
                   locomotiveType === 'KZ8A'
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
@@ -142,7 +142,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => handleTypeChange('TE33A')}
                 className={cn(
-                  'px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
+                  'ktz-op-btn px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
                   locomotiveType === 'TE33A'
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
@@ -153,9 +153,11 @@ export function AppShell() {
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center border-l border-border pl-6 min-w-0">
-            <ScenarioControl />
-          </div>
+          {showDemoControls ? (
+            <div className="hidden lg:flex items-center border-l border-border pl-6 min-w-0">
+              <ScenarioControl />
+            </div>
+          ) : null}
         </div>
 
         <nav className="flex items-center gap-0.5 sm:gap-1 shrink-0" aria-label={t('shell.navMain')}>
@@ -166,7 +168,7 @@ export function AppShell() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] sm:min-h-0',
+                  'ktz-op-btn flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] sm:min-h-0',
                   isActive
                     ? 'bg-primary/12 text-primary border border-primary/25'
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
@@ -219,7 +221,7 @@ export function AppShell() {
           <button
             type="button"
             onClick={handleLogout}
-            className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="ktz-op-btn p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             title={t('shell.logout')}
             aria-label={t('shell.logout')}
           >
