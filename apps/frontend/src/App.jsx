@@ -21,7 +21,19 @@ export default function App() {
 
           <Route element={<ProtectedLayout />}>
             <Route path="/cockpit" element={<Cockpit />} />
-            <Route path="/alerts" element={<Placeholder title="Incident Center" />} />
+            <Route
+              path="/alerts"
+              element={
+                <div className="flex items-center justify-center min-h-[50vh] px-4">
+                  <div className="text-center space-y-2 max-w-md">
+                    <h1 className="text-xl font-bold text-foreground">Incident Center</h1>
+                    <p className="text-sm text-muted-foreground">
+                      Заготовка маршрута. Реализация в следующих ветках.
+                    </p>
+                  </div>
+                </div>
+              }
+            />
             <Route path="/history" element={<Replay />} />
             <Route path="/report" element={<Report />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
