@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { Download, FileJson, RefreshCw, Table } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,15 @@ const WINDOW_OPTIONS = [
   { label: '15 мин', min: 15 },
 ];
 
-function buildReportQuery(locomotiveType, locomotiveId, windowMin) {
+function buildReportQuery(locomotiveType, locomotiveId, windowMin, fixedWindow) {
+  if (fixedWindow && Number.isFinite(fixedWindow.from) && Number.isFinite(fixedWindow.to)) {
+    return new URLSearchParams({
+      locomotiveType,
+      locomotiveId,
+      from: String(fixedWindow.from),
+      to: String(fixedWindow.to),
+    });
+  }
   const to = Date.now();
   const from = to - windowMin * 60 * 1000;
   return new URLSearchParams({
@@ -50,8 +58,25 @@ async function downloadReportBlob(params, format) {
 }
 
 export default function Report() {
-  const { locomotiveType } = useOutletContext();
-  const locomotiveId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
+  const { locomotiveType: outletLocomotiveType } = useOutletContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
+  const typeParam = searchParams.get('locomotiveType');
+  const idParam = searchParams.get('locomotiveId');
+
+  const locomotiveType = typeParam?.trim() || outletLocomotiveType;
+  const locomotiveId =
+    idParam?.trim() || DEFAULT_LOCOMOTIVE_ID[locomotiveType] || DEFAULT_LOCOMOTIVE_ID.KZ8A;
+
+  const incidentWindow = useMemo(() => {
+    if (fromParam == null || toParam == null) return null;
+    const from = Number(fromParam);
+    const to = Number(toParam);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
+    return { from, to };
+  }, [fromParam, toParam]);
 
   const [preset, setPreset] = useState('standard');
   const [windowMin, setWindowMin] = useState(15);
@@ -60,9 +85,21 @@ export default function Report() {
   const [error, setError] = useState(null);
 
   const queryParams = useMemo(
-    () => buildReportQuery(locomotiveType, locomotiveId, windowMin),
-    [locomotiveType, locomotiveId, windowMin]
+    () => buildReportQuery(locomotiveType, locomotiveId, windowMin, incidentWindow),
+    [locomotiveType, locomotiveId, windowMin, incidentWindow]
   );
+
+  const clearIncidentWindowParams = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('from');
+        next.delete('to');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
 
   const loadPreview = useCallback(async () => {
     setLoading(true);
@@ -110,6 +147,20 @@ export default function Report() {
             {locomotiveType} · {locomotiveId} ·{' '}
             <code className="rounded bg-muted px-1">GET /api/report</code>
           </p>
+          {incidentWindow ? (
+            <p className="text-xs text-primary mt-2 max-w-xl">
+              Период из инцидента:{' '}
+              {new Date(incidentWindow.from).toLocaleString('ru-RU')} —{' '}
+              {new Date(incidentWindow.to).toLocaleString('ru-RU')}.
+              <button
+                type="button"
+                onClick={() => clearIncidentWindowParams()}
+                className="ml-2 underline underline-offset-2 hover:text-foreground"
+              >
+                Сбросить на стандартное окно
+              </button>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -131,6 +182,7 @@ export default function Report() {
             onClick={() => {
               setPreset('standard');
               setWindowMin(15);
+              if (incidentWindow) clearIncidentWindowParams();
             }}
             className={cn(
               'px-3 py-1.5 rounded-md text-xs font-medium border transition-colors',
@@ -146,6 +198,7 @@ export default function Report() {
             onClick={() => {
               setPreset('incident');
               setWindowMin(5);
+              if (incidentWindow) clearIncidentWindowParams();
             }}
             className={cn(
               'px-3 py-1.5 rounded-md text-xs font-medium border transition-colors',
@@ -164,7 +217,10 @@ export default function Report() {
               key={w.min}
               type="button"
               disabled={preset === 'incident'}
-              onClick={() => setWindowMin(w.min)}
+              onClick={() => {
+                setWindowMin(w.min);
+                if (incidentWindow) clearIncidentWindowParams();
+              }}
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs font-medium border transition-colors',
                 windowMin === w.min
