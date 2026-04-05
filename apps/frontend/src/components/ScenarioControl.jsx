@@ -1,24 +1,21 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useI18n } from '@/i18n/I18nContext';
+import { useDemoControls } from '@/hooks/useDemoControls';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
 
-const FALLBACK_VALID = [
-  'normal',
-  'critical',
-  'highload',
-  'brake_drop',
-  'signal_loss',
-];
+const FALLBACK_VALID = ['normal', 'critical', 'highload', 'brake_drop', 'signal_loss'];
 
-const LABELS = {
-  normal: 'Норма',
-  critical: 'Критическая: Перегрев',
-  brake_drop: 'Падение тормозов',
-  signal_loss: 'Потеря сигнала',
-  highload: 'Высокая нагрузка',
-};
+function scenarioOptionLabel(t, id) {
+  if (!id || typeof id !== 'string') return '';
+  const fullKey = `cockpit.scenarios.${id}`;
+  const resolved = t(fullKey);
+  if (resolved === fullKey) return id.replace(/_/g, ' ');
+  return resolved;
+}
 
-export default function ScenarioControl() {
+function ScenarioControlInner() {
+  const { t } = useI18n();
   const [valid, setValid] = useState(FALLBACK_VALID);
   const [scenario, setScenario] = useState('normal');
   const [message, setMessage] = useState('');
@@ -57,12 +54,12 @@ export default function ScenarioControl() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         setScenario(data.scenario);
-        setMessage('Сценарий применён');
+        setMessage(t('scenario.applied'));
       } else {
-        setMessage(data.error || 'Ошибка');
+        setMessage(data.error || t('scenario.error'));
       }
     } catch {
-      setMessage('Нет связи с API');
+      setMessage(t('scenario.apiUnreachable'));
     }
     window.setTimeout(() => setMessage(''), 2800);
   }
@@ -70,8 +67,11 @@ export default function ScenarioControl() {
   return (
     <div className="flex flex-col gap-1 min-w-[200px]">
       <div className="flex items-center gap-2">
-        <label htmlFor="demo-scenario" className="text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-          Сценарий
+        <label
+          htmlFor="demo-scenario"
+          className="text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap"
+        >
+          {t('scenario.label')}
         </label>
         <select
           id="demo-scenario"
@@ -81,7 +81,7 @@ export default function ScenarioControl() {
         >
           {valid.map((id) => (
             <option key={id} value={id}>
-              {LABELS[id] || id}
+              {scenarioOptionLabel(t, id)}
             </option>
           ))}
         </select>
@@ -91,10 +91,18 @@ export default function ScenarioControl() {
           {message}
         </p>
       ) : (
-        <p className="text-[10px] text-muted-foreground/80 font-mono truncate" title={scenario}>
-          Текущий: <span className="text-foreground">{LABELS[scenario] || scenario}</span>
+        <p className="text-[10px] text-muted-foreground/80 font-mono truncate" title={scenarioOptionLabel(t, scenario)}>
+          {t('scenario.current')}:{' '}
+          <span className="text-foreground">{scenarioOptionLabel(t, scenario)}</span>
         </p>
       )}
     </div>
   );
+}
+
+/** Demo scenario control — no network effects unless demo controls are enabled. */
+export default function ScenarioControl() {
+  const enabled = useDemoControls();
+  if (!enabled) return null;
+  return <ScenarioControlInner />;
 }

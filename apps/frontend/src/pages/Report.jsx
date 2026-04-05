@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { Download, FileJson, RefreshCw, Table } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, SeverityIcon } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
+import { useDemoControls } from '@/hooks/useDemoControls';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
@@ -9,12 +11,6 @@ const DEFAULT_LOCOMOTIVE_ID = {
   KZ8A: 'KZ8A-DEMO-01',
   TE33A: 'TE33A-DEMO-01',
 };
-
-const WINDOW_OPTIONS = [
-  { label: '5 мин', min: 5 },
-  { label: '10 мин', min: 10 },
-  { label: '15 мин', min: 15 },
-];
 
 function buildReportQuery(locomotiveType, locomotiveId, windowMin, fixedWindow) {
   if (fixedWindow && Number.isFinite(fixedWindow.from) && Number.isFinite(fixedWindow.to)) {
@@ -57,7 +53,24 @@ async function downloadReportBlob(params, format) {
   return res.blob();
 }
 
+function alertSeverityLabel(t, sev) {
+  if (sev == null || sev === '') return '';
+  const k = `cockpit.severity.${sev}`;
+  const r = t(k);
+  return r === k ? String(sev) : r;
+}
+
 export default function Report() {
+  const { t } = useI18n();
+  const showDev = useDemoControls();
+  const windowOptions = useMemo(
+    () =>
+      [5, 10, 15].map((min) => ({
+        label: t(`replay.windowMin.${min}`),
+        min,
+      })),
+    [t]
+  );
   const { locomotiveType: outletLocomotiveType } = useOutletContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -142,22 +155,27 @@ export default function Report() {
     <div className="max-w-[960px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Отчёт по инциденту</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-mono">
-            {locomotiveType} · {locomotiveId} ·{' '}
-            <code className="rounded bg-muted px-1">GET /api/report</code>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('report.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {locomotiveType} · {locomotiveId}
+            {showDev ? (
+              <>
+                {' '}
+                · <code className="rounded bg-muted px-1 text-[11px] font-mono">GET /api/report</code>
+              </>
+            ) : null}
           </p>
           {incidentWindow ? (
             <p className="text-xs text-primary mt-2 max-w-xl">
-              Период из инцидента:{' '}
-              {new Date(incidentWindow.from).toLocaleString('ru-RU')} —{' '}
-              {new Date(incidentWindow.to).toLocaleString('ru-RU')}.
+              {t('report.incidentPeriodHint')}{' '}
+              {new Date(incidentWindow.from).toLocaleString()} —{' '}
+              {new Date(incidentWindow.to).toLocaleString()}.
               <button
                 type="button"
                 onClick={() => clearIncidentWindowParams()}
                 className="ml-2 underline underline-offset-2 hover:text-foreground"
               >
-                Сбросить на стандартное окно
+                {t('report.resetStandardWindow')}
               </button>
             </p>
           ) : null}
@@ -169,13 +187,13 @@ export default function Report() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-secondary"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
-            Обновить превью
+            {t('report.refreshPreview')}
           </button>
         </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Параметры окна</p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">{t('report.windowParams')}</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -191,7 +209,7 @@ export default function Report() {
                 : 'bg-background border-border text-muted-foreground hover:text-foreground'
             )}
           >
-            Стандарт
+            {t('report.presetStandard')}
           </button>
           <button
             type="button"
@@ -206,13 +224,13 @@ export default function Report() {
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'bg-background border-border text-muted-foreground hover:text-foreground'
             )}
-            title="Короткое окно (5 мин) для фокуса на последнем эпизоде"
+            title={t('report.presetIncidentTitle')}
           >
-            Пресет «инцидент» (5 мин)
+            {t('report.presetIncident')}
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {WINDOW_OPTIONS.map((w) => (
+          {windowOptions.map((w) => (
             <button
               key={w.min}
               type="button"
@@ -234,21 +252,19 @@ export default function Report() {
           ))}
         </div>
         {preset === 'incident' ? (
-          <p className="text-xs text-muted-foreground">
-            Пресет фиксирует окно <strong>5 минут</strong> — удобно для короткого среза перед экспортом.
-          </p>
+          <p className="text-xs text-muted-foreground">{t('report.presetIncidentHint')}</p>
         ) : null}
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm" role="status" aria-live="polite">
           {error}
         </div>
       ) : null}
 
       {loading && !report ? (
         <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm font-mono">
-          Загрузка отчёта…
+          {t('report.loading')}
         </div>
       ) : null}
 
@@ -257,10 +273,10 @@ export default function Report() {
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Сводка перед экспортом</h2>
+                <h2 className="text-sm font-semibold text-foreground">{t('report.summaryTitle')}</h2>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Период: {meta?.from ? new Date(meta.from).toLocaleString('ru-RU') : '—'} —{' '}
-                  {meta?.to ? new Date(meta.to).toLocaleString('ru-RU') : '—'}
+                  {t('report.period')}: {meta?.from ? new Date(meta.from).toLocaleString() : '—'} —{' '}
+                  {meta?.to ? new Date(meta.to).toLocaleString() : '—'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -270,7 +286,7 @@ export default function Report() {
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-border bg-background hover:bg-secondary"
                 >
                   <FileJson className="w-4 h-4" />
-                  Экспорт JSON
+                  {t('report.exportJson')}
                 </button>
                 <button
                   type="button"
@@ -278,30 +294,30 @@ export default function Report() {
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
                 >
                   <Table className="w-4 h-4" />
-                  Экспорт CSV
+                  {t('report.exportCsv')}
                 </button>
               </div>
             </div>
 
             <dl className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono border-t border-border/60 pt-4">
               <div>
-                <dt className="text-muted-foreground">Точек телеметрии</dt>
+                <dt className="text-muted-foreground">{t('report.telemetryPoints')}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{meta?.sampleCount ?? 0}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">HI min</dt>
+                <dt className="text-muted-foreground">{t('report.hiMin')}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{hs?.min ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">HI max</dt>
+                <dt className="text-muted-foreground">{t('report.hiMax')}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{hs?.max ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">HI ср.</dt>
+                <dt className="text-muted-foreground">{t('report.hiAvg')}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{hs?.avg ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">HI последн. / класс</dt>
+                <dt className="text-muted-foreground">{t('report.hiLastClass')}</dt>
                 <dd className="text-lg font-semibold tabular-nums">
                   {hs?.lastScore ?? '—'}
                   {hs?.class != null ? (
@@ -314,7 +330,7 @@ export default function Report() {
             <div className="grid md:grid-cols-2 gap-4 border-t border-border/60 pt-4">
               <div>
                 <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                  Алерты в окне
+                  {t('report.alertsInWindow')}
                 </h3>
                 {Array.isArray(report.alertsInWindow) && report.alertsInWindow.length > 0 ? (
                   <ul className="text-sm space-y-1.5 list-disc list-inside text-foreground/90">
@@ -322,18 +338,22 @@ export default function Report() {
                       <li key={`${a.code}-${a.timestamp}`}>
                         <span className="font-medium">{a.title || a.code}</span>
                         {a.severity ? (
-                          <span className="text-muted-foreground"> · {a.severity}</span>
+                          <span className="text-muted-foreground inline-flex items-center gap-0.5">
+                            {' · '}
+                            <SeverityIcon severity={a.severity} />
+                            {alertSeverityLabel(t, a.severity)}
+                          </span>
                         ) : null}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Нет алертов в выбранном интервале.</p>
+                  <p className="text-sm text-muted-foreground">{t('report.noAlertsInWindow')}</p>
                 )}
               </div>
               <div>
                 <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                  Топ вкладов (последний снимок в окне)
+                  {t('report.topContributors')}
                 </h3>
                 {Array.isArray(report.topContributors) && report.topContributors.length > 0 ? (
                   <ul className="text-sm space-y-1.5">
@@ -347,14 +367,14 @@ export default function Report() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Нет вкладов — недостаточно данных.</p>
+                  <p className="text-sm text-muted-foreground">{t('report.noContributors')}</p>
                 )}
               </div>
             </div>
 
             <div>
               <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                Рекомендации (сводка)
+                {t('report.recommendationsSummary')}
               </h3>
               {Array.isArray(report.recommendationsSummary) && report.recommendationsSummary.length > 0 ? (
                 <ul className="text-sm space-y-1 list-decimal list-inside text-foreground/90">
@@ -363,7 +383,7 @@ export default function Report() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">Нет выделенных рекомендаций.</p>
+                <p className="text-sm text-muted-foreground">{t('report.noRecommendations')}</p>
               )}
             </div>
           </div>
@@ -371,8 +391,7 @@ export default function Report() {
           <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground font-mono">
             <span className="inline-flex items-center gap-1.5 text-foreground/80">
               <Download className="w-3.5 h-3.5" />
-              Экспорт не требует правок кода: те же параметры, что и у превью (
-              <span className="text-primary">format=json|csv</span>).
+              {t('report.exportFooter')}
             </span>
           </div>
         </>

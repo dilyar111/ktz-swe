@@ -1,8 +1,9 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
-/** HK-019 — transport + data freshness (no logic; presentation only). */
+/** HK-019/034 — transport + data freshness */
 const STYLES = {
   online: 'bg-status-ok/15 text-status-ok border-status-ok/40',
   stale: 'bg-status-warning/15 text-status-warning border-status-warning/45',
@@ -11,12 +12,12 @@ const STYLES = {
   offline: 'bg-status-critical/10 text-status-critical border-status-critical/40',
 };
 
-const LABELS = {
-  online: 'Online',
-  stale: 'No signal',
-  reconnecting: 'Reconnecting',
-  connecting: 'Connecting…',
-  offline: 'No connection',
+const STATUS_KEYS = {
+  online: 'connection.online',
+  stale: 'connection.stale',
+  reconnecting: 'connection.reconnecting',
+  connecting: 'connection.connecting',
+  offline: 'connection.offline',
 };
 
 /**
@@ -26,7 +27,9 @@ const LABELS = {
  * }} props
  */
 export default function ConnectionStatusBadge({ status, className }) {
-  const label = LABELS[status] ?? status;
+  const { t } = useI18n();
+  const key = STATUS_KEYS[status] ?? STATUS_KEYS.offline;
+  const label = t(key);
   const pulse = status === 'online';
 
   return (

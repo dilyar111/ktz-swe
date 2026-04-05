@@ -3,33 +3,55 @@
 @tailwind utilities;
 
 @layer base {
+  /* Operational UI (cockpit, replay, reports) — dark industrial */
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 142 70% 45%;
-    --primary-foreground: 222 47% 6%;
-    --secondary: 217 33% 15%;
-    --secondary-foreground: 210 40% 85%;
-    --muted: 217 33% 12%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 25 90% 50%;
-    --accent-foreground: 222 47% 6%;
+    --background: 222 44% 7%;
+    --foreground: 210 36% 96%;
+    --card: 222 42% 9%;
+    --card-foreground: 210 36% 96%;
+    --popover: 222 42% 9%;
+    --popover-foreground: 210 36% 96%;
+    /* KTZ-inspired brand blue for primary actions / nav emphasis */
+    --primary: 210 78% 46%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 28% 16%;
+    --secondary-foreground: 210 36% 90%;
+    --muted: 217 28% 13%;
+    --muted-foreground: 215 18% 58%;
+    /* Gold accent — highlights, secondary CTAs */
+    --accent: 43 72% 48%;
+    --accent-foreground: 222 47% 8%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 96%;
-    --border: 217 33% 17%;
-    --input: 217 33% 15%;
-    --ring: 142 70% 45%;
+    --border: 217 28% 18%;
+    --input: 217 28% 16%;
+    --ring: 210 78% 50%;
     --radius: 0.5rem;
-    --status-ok: 142 70% 45%;
-    --status-warning: 45 93% 47%;
-    --status-critical: 0 72% 51%;
-    --status-info: 217 91% 60%;
-    --panel: 222 47% 7%;
-    --panel-elevated: 222 47% 10%;
+    --status-ok: 152 65% 42%;
+    /* Darker amber/orange vs bright yellow — better contrast on dark UI, distinct from critical red */
+    --status-warning: 38 92% 46%;
+    --status-critical: 0 76% 50%;
+    --status-info: 210 78% 52%;
+    --panel: 222 44% 6%;
+    --panel-elevated: 222 40% 11%;
+    --ktz-blue: 210 78% 42%;
+    --ktz-gold: 43 72% 48%;
+  }
+
+  /* Public shell (landing / login) — light, corporate */
+  .ktz-public {
+    --background: 210 25% 98%;
+    --foreground: 222 35% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 35% 14%;
+    --muted-foreground: 215 16% 42%;
+    --border: 210 20% 88%;
+    --primary: 210 78% 38%;
+    --primary-foreground: 210 40% 99%;
+    --ring: 210 78% 42%;
+    --ktz-blue: 210 82% 36%;
+    --ktz-gold: 43 72% 44%;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
   }
 
   * {

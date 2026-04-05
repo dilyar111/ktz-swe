@@ -17,7 +17,8 @@ import {
   Clock,
   Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, SeverityIcon } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
 const API_BASE =
   import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 'http://localhost:5000';
@@ -177,6 +178,7 @@ function AckToast({ message, onDismiss }) {
  * HK-031: Full implementation with WebSocket real-time, summary bar, drawer, ack workflow.
  */
 export default function IncidentCenter() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const socketRef = useRef(null);
 
@@ -435,7 +437,7 @@ export default function IncidentCenter() {
           className="inline-flex items-center gap-2 self-start px-3 py-2 rounded-lg text-sm font-medium border border-border bg-background hover:bg-secondary transition-colors"
         >
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-          Обновить
+          {t('incidents.refresh')}
         </button>
       </div>
 
@@ -475,17 +477,17 @@ export default function IncidentCenter() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
           <span className="inline-flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider shrink-0">
             <Filter className="w-3.5 h-3.5" />
-            Фильтры
+            {t('incidents.filters')}
           </span>
 
           {/* Severity filter */}
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-muted-foreground shrink-0">Уровень:</span>
             {[
-              { label: 'Все', value: 'all' },
-              { label: 'Critical', value: 'critical' },
-              { label: 'Warning', value: 'warning' },
-              { label: 'Info', value: 'info' },
+              { label: t('incidents.filterAll'), value: 'all' },
+              { label: sevLabel('critical'), value: 'critical' },
+              { label: sevLabel('warning'), value: 'warning' },
+              { label: sevLabel('info'), value: 'info' },
             ].map((o) => (
               <button
                 key={`sev-${o.value}`}
@@ -783,7 +785,9 @@ export default function IncidentCenter() {
 
               {/* Ack status */}
               <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Подтверждение</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                  {t('incidents.acknowledgement')}
+                </p>
                 {selected.acked ? (
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
                     <CheckCircle2 className="w-4 h-4" />

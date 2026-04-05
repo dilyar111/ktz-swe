@@ -33,6 +33,8 @@ npm run dev
 
 After startup the simulator sends telemetry at ~1 Hz; the frontend connects via Socket.IO and updates in real time (default profile: **KZ8A**).
 
+**HK-034:** UI copy defaults to Russian (`I18nProvider` + `src/i18n/locales/`). Optional English: `localStorage.setItem('ktz_locale','en')` then reload. For hackathon demos, set **`VITE_DEMO_CONTROLS=true`** in root `.env` to show the scenario selector and channel-throughput readout to non-admin users; otherwise those are **admin-only**.
+
 ---
 
 ## Docker

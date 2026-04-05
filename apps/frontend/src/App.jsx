@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { I18nProvider } from '@/i18n/I18nContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedLayout } from '@/components/ProtectedLayout';
 import Cockpit from '@/pages/Cockpit';
@@ -13,12 +14,13 @@ import IncidentCenter from '@/pages/IncidentCenter';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/access-denied" element={<AccessDenied />} />
+    <I18nProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/access-denied" element={<AccessDenied />} />
 
           <Route element={<ProtectedLayout />}>
             <Route path="/cockpit" element={<Cockpit />} />
@@ -28,9 +30,10 @@ export default function App() {
             <Route path="/admin/settings" element={<AdminSettings />} />
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </I18nProvider>
   );
 }
