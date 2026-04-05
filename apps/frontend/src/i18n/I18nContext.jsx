@@ -1,12 +1,12 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
 import ru from './locales/ru';
-import en from './locales/en';
 
 const STORAGE_KEY = 'ktz_locale';
 
-export const supportedLocales = ['ru', 'en'];
+/** Интерфейс только на русском (HK-040); латиница — обозначения типов KZ8A/TE33A и т.п. */
+export const supportedLocales = ['ru'];
 
-const LOCALES = { ru, en };
+const LOCALES = { ru };
 
 function getByPath(obj, path) {
   if (!obj || !path) return undefined;
@@ -20,21 +20,17 @@ function getByPath(obj, path) {
 }
 
 /**
- * Safe locale from localStorage: only supported codes, else RU default.
+ * Всегда ru: единый язык для демо и прод-подобного показа.
  */
 export function getSafeLocale() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return supportedLocales.includes(stored) ? stored : 'ru';
+    localStorage.setItem(STORAGE_KEY, 'ru');
   } catch {
-    return 'ru';
+    /* ignore */
   }
+  return 'ru';
 }
 
-/**
- * @param {string} template
- * @param {Record<string, string | number> | undefined} vars
- */
 function interpolate(template, vars) {
   if (!vars) return template;
   let out = template;
@@ -45,34 +41,28 @@ function interpolate(template, vars) {
 }
 
 const I18nContext = createContext(
-  /** @type {{ locale: string, setLocale: (l: string) => void, t: (key: string, vars?: Record<string, string | number>) => string } | null} */ (
+  /** @type {{ locale: 'ru', setLocale: (l: string) => void, t: (key: string, vars?: Record<string, string | number>) => string } | null} */ (
     null
   )
 );
 
 export function I18nProvider({ children }) {
-  const [locale, setLocaleState] = useState(() => getSafeLocale());
+  const t = useCallback((key, vars) => {
+    let str = getByPath(LOCALES.ru, key) ?? key;
+    return interpolate(str, vars);
+  }, []);
 
   const setLocale = useCallback((next) => {
-    const l = supportedLocales.includes(next) ? next : 'ru';
-    setLocaleState(l);
-    try {
-      localStorage.setItem(STORAGE_KEY, l);
-    } catch {
-      /* ignore */
+    if (next !== 'ru') {
+      try {
+        localStorage.setItem(STORAGE_KEY, 'ru');
+      } catch {
+        /* ignore */
+      }
     }
   }, []);
 
-  const t = useCallback(
-    (key, vars) => {
-      const dict = LOCALES[locale] || ru;
-      let str = getByPath(dict, key) ?? getByPath(ru, key) ?? key;
-      return interpolate(str, vars);
-    },
-    [locale]
-  );
-
-  const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+  const value = useMemo(() => ({ locale: 'ru', setLocale, t }), [t, setLocale]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

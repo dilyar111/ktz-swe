@@ -107,60 +107,59 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="min-h-16 border-b border-border bg-panel-elevated flex flex-wrap items-center justify-between gap-y-2 px-4 lg:px-6 py-2 sticky top-0 z-50">
-        <div className="flex items-center gap-4 lg:gap-6 min-w-0 flex-1">
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 rounded-md bg-primary/12 flex items-center justify-center border border-primary/35 p-1">
-              <KtzLogo size="sm" className="rounded-sm" alt="" />
+      {/* Две зоны: бренд+профиль | навигация; сценарий демо — отдельной строкой (HK-039 без перекрытий) */}
+      <header className="border-b border-border bg-panel-elevated sticky top-0 z-50 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 items-center px-4 lg:px-6 py-2 min-h-[3.25rem]">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 lg:gap-6 min-w-0">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-9 h-9 rounded-md bg-primary/12 flex items-center justify-center border border-primary/35 p-1">
+                <KtzLogo size="sm" className="rounded-sm" alt="" />
+              </div>
+              <div className="min-w-0 hidden sm:block">
+                <h1 className="text-sm font-bold leading-none tracking-tight truncate text-foreground">
+                  {t('shell.productTitle')}
+                </h1>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+                  {t('shell.productSubtitle')}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 hidden sm:block">
-              <h1 className="text-sm font-bold leading-none tracking-tight truncate text-foreground">
-                {t('shell.productTitle')}
-              </h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
-                {t('shell.productSubtitle')}
-              </p>
+
+            <div className="hidden md:flex items-center gap-2 border-l border-border pl-4 lg:pl-6 shrink-0">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('shell.profile')}</span>
+              <div className="flex bg-background rounded-md border border-border p-1" role="group" aria-label={t('shell.profile')}>
+                <button
+                  type="button"
+                  onClick={() => handleTypeChange('KZ8A')}
+                  className={cn(
+                    'ktz-op-btn px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
+                    locomotiveType === 'KZ8A'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  KZ8A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTypeChange('TE33A')}
+                  className={cn(
+                    'ktz-op-btn px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
+                    locomotiveType === 'TE33A'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  TE33A
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 border-l border-border pl-6 shrink-0">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('shell.profile')}</span>
-            <div className="flex bg-background rounded-md border border-border p-1" role="group" aria-label={t('shell.profile')}>
-              <button
-                type="button"
-                onClick={() => handleTypeChange('KZ8A')}
-                className={cn(
-                  'ktz-op-btn px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
-                  locomotiveType === 'KZ8A'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                KZ8A
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTypeChange('TE33A')}
-                className={cn(
-                  'ktz-op-btn px-3 py-1 text-xs font-medium rounded-sm transition-colors min-h-[44px] sm:min-h-0',
-                  locomotiveType === 'TE33A'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                TE33A
-              </button>
-            </div>
-          </div>
-
-          {showDemoControls ? (
-            <div className="hidden lg:flex items-center border-l border-border pl-6 min-w-0">
-              <ScenarioControl />
-            </div>
-          ) : null}
-        </div>
-
-        <nav className="flex items-center gap-0.5 sm:gap-1 shrink-0" aria-label={t('shell.navMain')}>
+        <nav
+          className="flex items-center gap-0.5 sm:gap-1 shrink-0 flex-wrap justify-start md:justify-end relative z-10 bg-panel-elevated md:pl-2"
+          aria-label={t('shell.navMain')}
+        >
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -214,7 +213,13 @@ export function AppShell() {
               title={t('shell.roleHint')}
             >
               <Shield className="w-3 h-3 shrink-0 text-primary/80" aria-hidden />
-              <span className="truncate">{user?.role ?? '—'}</span>
+              <span className="truncate">
+                {user?.role === 'admin'
+                  ? t('shell.roleAdmin')
+                  : user?.role === 'operator'
+                    ? t('shell.roleOperator')
+                    : (user?.role ?? '—')}
+              </span>
             </div>
           ) : null}
 
@@ -228,6 +233,17 @@ export function AppShell() {
             <LogOut className="w-4 h-4" />
           </button>
         </nav>
+        </div>
+
+        {showDemoControls ? (
+          <div className="border-t border-border px-4 lg:px-6 py-2.5 bg-muted/25">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 max-w-[1600px] mx-auto w-full">
+              <div className="min-w-0 max-w-full">
+                <ScenarioControl />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <main className="flex-1 overflow-auto bg-background p-4 lg:p-6">

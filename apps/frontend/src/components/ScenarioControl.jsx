@@ -72,11 +72,11 @@ function ScenarioControlInner() {
   }
 
   return (
-    <div className="flex flex-col gap-1 min-w-[200px]">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-1 w-full min-w-0 max-w-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
         <label
           htmlFor="demo-scenario"
-          className="text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap"
+          className="text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0"
         >
           {t('scenario.label')}
         </label>
@@ -84,7 +84,7 @@ function ScenarioControlInner() {
           id="demo-scenario"
           value={valid.includes(scenario) ? scenario : 'normal'}
           onChange={onChange}
-          className="text-xs font-mono bg-background border border-border rounded-md px-2 py-1.5 max-w-[220px] text-foreground"
+          className="text-xs font-mono bg-background border border-border rounded-md px-2 py-1.5 min-w-0 w-full sm:max-w-[min(100%,320px)] sm:w-auto text-foreground"
         >
           {valid.map((id) => (
             <option key={id} value={id}>
