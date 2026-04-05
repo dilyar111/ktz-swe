@@ -1,6 +1,7 @@
 import React from 'react';
 import { Zap, Cog, Disc } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
 function engineStatusFor(metrics, locomotiveType) {
   const t = metrics?.engine_temp ?? 0;
@@ -41,7 +42,7 @@ const statusColors = {
 
 const statusGlow = {
   ok: '',
-  warning: 'shadow-[0_0_20px_rgba(250,204,21,0.2)]',
+  warning: 'shadow-[0_0_20px_rgba(217,119,6,0.28)]',
   critical: 'shadow-[0_0_25px_rgba(239,68,68,0.3)]',
 };
 
@@ -65,19 +66,20 @@ function SystemBlock({ name, status, icon, value, unit }) {
 }
 
 export function DigitalTwin({ metrics, locomotiveType = 'KZ8A' }) {
+  const { t } = useI18n();
   const eng = engineStatusFor(metrics, locomotiveType);
   const brk = brakeStatusFor(metrics);
   const ele = electricStatusFor(metrics, locomotiveType);
-  const voltUnit = locomotiveType === 'KZ8A' ? 'V (25 кВ сеть)' : 'V';
+  const voltUnit = locomotiveType === 'KZ8A' ? t('digitalTwin.voltUnitKz') : t('digitalTwin.voltUnit');
 
   return (
     <div className="flex flex-col h-full">
       <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-        Подсистемы
+        {t('digitalTwin.title')}
       </h3>
       <div className="grid grid-cols-3 gap-3 flex-1">
         <SystemBlock
-          name="Тепло / ДВС"
+          name={t('digitalTwin.engine')}
           status={eng}
           icon={
             <Cog
@@ -89,14 +91,14 @@ export function DigitalTwin({ metrics, locomotiveType = 'KZ8A' }) {
           unit="°C"
         />
         <SystemBlock
-          name="Тормоза"
+          name={t('digitalTwin.brakes')}
           status={brk}
           icon={<Disc className="h-8 w-8" />}
           value={metrics?.brake_pressure != null ? metrics.brake_pressure.toFixed(1) : null}
           unit="bar"
         />
         <SystemBlock
-          name="Электро"
+          name={t('digitalTwin.electric')}
           status={ele}
           icon={<Zap className="h-8 w-8" />}
           value={metrics?.voltage != null ? Math.round(metrics.voltage) : null}
@@ -105,7 +107,7 @@ export function DigitalTwin({ metrics, locomotiveType = 'KZ8A' }) {
       </div>
       <div className="relative mt-6 h-8">
         <div className="absolute left-1/2 bottom-0 -translate-x-1/2 px-3 py-1 rounded-sm bg-secondary text-[10px] font-mono text-muted-foreground tracking-widest uppercase border border-border">
-          {locomotiveType} · интегральный вид
+          {locomotiveType} · {t('digitalTwin.footerHint')}
         </div>
       </div>
     </div>

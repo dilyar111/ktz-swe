@@ -102,7 +102,12 @@ export function deriveConnectionStatus(connected, hasEverConnected, isReconnecti
   return 'online';
 }
 
-export function useCockpitData(locomotiveType) {
+/**
+ * @param {string} locomotiveType
+ * @param {{ trackThroughput?: boolean }} [options]
+ */
+export function useCockpitData(locomotiveType, options = {}) {
+  const { trackThroughput = false } = options;
   const [lastPayload, setLastPayload] = useState(null);
   const [history, setHistory] = useState([]);
   const [connected, setConnected] = useState(false);
@@ -231,9 +236,10 @@ export function useCockpitData(locomotiveType) {
       handleUpdate(payload);
     });
 
-    socket.on('telemetry:throughput', (t) => {
-      setThroughput(t);
-    });
+    const onThroughput = (t) => setThroughput(t);
+    if (trackThroughput) {
+      socket.on('telemetry:throughput', onThroughput);
+    }
 
     socket.on('alerts:update', (p) => {
       const expectedId = DEFAULT_LOCOMOTIVE_ID[locomotiveType] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
@@ -251,11 +257,14 @@ export function useCockpitData(locomotiveType) {
       });
     });
     return () => {
+      if (trackThroughput) {
+        socket.off('telemetry:throughput', onThroughput);
+      }
       socket.removeAllListeners();
       socket.io.off('reconnect_attempt');
       socket.close();
     };
-  }, [locomotiveType, bootstrapFromRest]);
+  }, [locomotiveType, bootstrapFromRest, trackThroughput]);
 
   const data = lastPayload
     ? buildCockpitModel(

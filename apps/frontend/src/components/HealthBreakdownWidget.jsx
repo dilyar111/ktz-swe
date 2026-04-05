@@ -1,16 +1,9 @@
 import { useMemo } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, SeverityIcon } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
 /** Fixed display order (matches backend engine). */
 const SUBSYSTEM_ORDER = ['traction', 'brakes', 'thermal', 'electrical', 'signaling'];
-
-const LABELS = {
-  traction: 'Traction',
-  brakes: 'Brakes',
-  thermal: 'Thermal',
-  electrical: 'Electrical',
-  signaling: 'Signaling',
-};
 
 /** Fallback if older API omits `weights` — mirrors apps/backend/src/health/profiles.js */
 const FALLBACK_WEIGHTS = {
@@ -35,6 +28,8 @@ function statusBarClass(status) {
  * @param {{ health: Record<string, unknown> | null | undefined, className?: string }} props
  */
 export default function HealthBreakdownWidget({ health, className }) {
+  const { t } = useI18n();
+
   const rows = useMemo(() => {
     if (!health?.subsystems) return null;
     const w = resolveWeights(health);
@@ -45,9 +40,10 @@ export default function HealthBreakdownWidget({ health, className }) {
       const weight = w[key];
       if (weight == null) continue;
       const contribution = sub.score * weight;
+      const label = t(`health.subsystem.${key}`) || key;
       list.push({
         key,
-        label: LABELS[key] ?? key,
+        label,
         score: sub.score,
         status: sub.status ?? 'normal',
         weight,
@@ -55,7 +51,7 @@ export default function HealthBreakdownWidget({ health, className }) {
       });
     }
     return list;
-  }, [health]);
+  }, [health, t]);
 
   const worstKey = useMemo(() => {
     if (!rows?.length) return null;
@@ -99,7 +95,8 @@ export default function HealthBreakdownWidget({ health, className }) {
           className
         )}
       >
-        Subsystem breakdown will appear when health data includes <code className="font-mono">subsystems</code>.
+        {t('healthBreakdown.emptyPrefix')}{' '}
+        <code className="font-mono">{t('healthBreakdown.emptyCode')}</code> {t('healthBreakdown.emptySuffix')}
       </div>
     );
   }
@@ -108,9 +105,13 @@ export default function HealthBreakdownWidget({ health, className }) {
 
   function rowTooltip(r) {
     const pct = Math.round(r.weight * 100);
-    const base = `${r.label} affects the total in proportion to its profile weight (${pct}%). Impact = score × weight = ${r.contribution.toFixed(1)}.`;
+    const base = t('healthBreakdown.rowTooltipWeight', {
+      label: r.label,
+      pct: String(pct),
+      contrib: r.contribution.toFixed(1),
+    });
     if (Math.abs(r.weight - maxWeight) < 1e-9) {
-      return `${base} Highest weight in this profile — small score changes move the index more.`;
+      return `${base} ${t('healthBreakdown.rowTooltipHeaviest')}`;
     }
     return base;
   }
@@ -120,10 +121,11 @@ export default function HealthBreakdownWidget({ health, className }) {
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground/90">
-            Subsystem health
+            {t('healthBreakdown.title')}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Profile: <span className="font-mono text-foreground/80">{health.profile ?? '—'}</span>
+            {t('healthBreakdown.profile')}:{' '}
+            <span className="font-mono text-foreground/80">{health.profile ?? '—'}</span>
           </p>
         </div>
         {totalScore != null ? (
@@ -132,11 +134,8 @@ export default function HealthBreakdownWidget({ health, className }) {
               <span className="text-2xl font-bold font-mono tabular-nums text-foreground leading-none">
                 {totalScore}
               </span>
-              <span className="text-[11px] text-muted-foreground font-mono leading-none">
-                = Σ(score × weight)
-              </span>
             </div>
-            <p className="text-[10px] text-muted-foreground/90 mt-1">Composite health index</p>
+            <p className="text-[10px] text-muted-foreground/90 mt-1">{t('healthBreakdown.aggregateIndex')}</p>
           </div>
         ) : null}
       </div>
@@ -171,16 +170,27 @@ export default function HealthBreakdownWidget({ health, className }) {
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5 pl-[88px]">
-              Impact on total:{' '}
+              {r.status === 'warning' || r.status === 'critical' ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 mr-2 font-semibold uppercase text-[10px] tracking-wide',
+                    r.status === 'critical' ? 'text-status-critical' : 'text-status-warning'
+                  )}
+                >
+                  <SeverityIcon severity={r.status} />
+                  {t(`cockpit.severity.${r.status}`)}
+                </span>
+              ) : null}
+              {t('healthBreakdown.contributionLine')}{' '}
               <span className="font-mono text-foreground/80 tabular-nums">{r.contribution.toFixed(1)}</span>
               {worstKey === r.key ? (
                 <span className="ml-2 text-status-warning text-[10px] uppercase tracking-wide">
-                  lowest score
+                  {t('healthBreakdown.minScore')}
                 </span>
               ) : null}
               {highestImpactKey === r.key ? (
                 <span className="ml-2 text-primary text-[10px] uppercase tracking-wide">
-                  highest impact
+                  {t('healthBreakdown.maxContribution')}
                 </span>
               ) : null}
             </p>
@@ -190,8 +200,8 @@ export default function HealthBreakdownWidget({ health, className }) {
 
       <div className="pt-2 border-t border-border space-y-2">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <span className="font-medium text-foreground/90">Total score</span> = Σ(score × weight) — same value as
-          above; rows show each product.
+          <span className="font-medium text-foreground/90">{t('healthBreakdown.footerLead')}</span>{' '}
+          {t('healthBreakdown.footerBody')}
         </p>
         <p className="text-[11px] font-mono text-muted-foreground break-words leading-relaxed">
           {formulaParts.join(' + ')}
@@ -200,7 +210,10 @@ export default function HealthBreakdownWidget({ health, className }) {
               {' '}
               ≈ <span className="text-foreground">{sumRounded}</span>
               {totalScore != null && sumRounded !== totalScore ? (
-                <span className="text-muted-foreground"> (reported: {totalScore})</span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  {t('healthBreakdown.fromApi', { value: String(totalScore) })}
+                </span>
               ) : null}
             </>
           ) : null}
@@ -209,22 +222,3 @@ export default function HealthBreakdownWidget({ health, className }) {
     </div>
   );
 }
-
-/*
-Example (mock) for Storybook / manual test:
-
-<HealthBreakdownWidget
-  health={{
-    total_score: 61,
-    profile: 'TE33A',
-    weights: { traction: 0.3, brakes: 0.25, thermal: 0.25, electrical: 0.1, signaling: 0.1 },
-    subsystems: {
-      traction: { score: 78, status: 'warning' },
-      brakes: { score: 75, status: 'warning' },
-      thermal: { score: 55, status: 'critical' },
-      electrical: { score: 90, status: 'normal' },
-      signaling: { score: 88, status: 'normal' },
-    },
-  }}
-/>
-*/

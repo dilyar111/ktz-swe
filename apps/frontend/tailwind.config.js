@@ -38,6 +38,8 @@ export default {
         'status-info': 'hsl(var(--status-info))',
         panel: 'hsl(var(--panel))',
         'panel-elevated': 'hsl(var(--panel-elevated))',
+        'ktz-blue': 'hsl(var(--ktz-blue) / <alpha-value>)',
+        'ktz-gold': 'hsl(var(--ktz-gold) / <alpha-value>)',
       },
       borderRadius: {
         lg: 'var(--radius)',

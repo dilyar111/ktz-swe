@@ -12,6 +12,8 @@ import {
 } from 'recharts';
 import { RefreshCw, SkipBack } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
+import { useDemoControls } from '@/hooks/useDemoControls';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
@@ -19,12 +21,6 @@ const DEFAULT_LOCOMOTIVE_ID = {
   KZ8A: 'KZ8A-DEMO-01',
   TE33A: 'TE33A-DEMO-01',
 };
-
-const WINDOW_OPTIONS = [
-  { label: '5 мин', min: 5 },
-  { label: '10 мин', min: 10 },
-  { label: '15 мин', min: 15 },
-];
 
 /**
  * Первый момент «инцидента»: падение HI ниже предупреждения; иначе точка минимума HI.
@@ -53,6 +49,16 @@ function formatAxisTime(ts) {
 }
 
 export default function Replay() {
+  const { t } = useI18n();
+  const showDev = useDemoControls();
+  const windowOptions = useMemo(
+    () =>
+      [5, 10, 15].map((min) => ({
+        label: t(`replay.windowMin.${min}`),
+        min,
+      })),
+    [t]
+  );
   const { locomotiveType: outletLocomotiveType } = useOutletContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -175,28 +181,34 @@ export default function Replay() {
     <div className="max-w-[1600px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Replay</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-mono">
-            {locomotiveType} · {locomotiveId} · данные из{' '}
-            <code className="rounded bg-muted px-1">
-              {'GET /api/history?includeHealth=1&order=asc'}
-            </code>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('replay.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {locomotiveType} · {locomotiveId}
+            {showDev ? (
+              <>
+                {' '}
+                · <span className="font-mono text-[11px]">{t('replay.subtitle')}</span>
+              </>
+            ) : null}
           </p>
           {incidentWindow ? (
             <p className="text-xs text-primary mt-2 max-w-xl">
-              Окно задано из инцидента: {formatAxisTime(incidentWindow.from)} — {formatAxisTime(incidentWindow.to)}.
+              {t('replay.incidentWindowHint', {
+                from: formatAxisTime(incidentWindow.from),
+                to: formatAxisTime(incidentWindow.to),
+              })}{' '}
               <button
                 type="button"
                 onClick={() => clearIncidentWindowParams()}
                 className="ml-2 underline underline-offset-2 hover:text-foreground"
               >
-                Перейти на «живое» окно
+                {t('replay.useLiveWindow')}
               </button>
             </p>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {WINDOW_OPTIONS.map((w) => (
+          {windowOptions.map((w) => (
             <button
               key={w.min}
               type="button"
@@ -216,47 +228,52 @@ export default function Replay() {
             onClick={() => void loadHistory()}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-secondary"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Обновить
+            <RefreshCw className="w-3.5 h-3.5" aria-hidden />
+            {t('replay.refresh')}
           </button>
         </div>
       </div>
 
       {fetchError ? (
-        <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm">
-          Не удалось загрузить историю: {fetchError}
+        <div
+          className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          {t('replay.errorPrefix')}: {fetchError}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-[200px] text-muted-foreground text-sm font-mono">
-          Загрузка окна…
+        <div className="flex items-center justify-center min-h-[200px] text-muted-foreground text-sm">
+          {t('replay.loading')}
         </div>
       ) : null}
 
       {!loading && chartData.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground text-sm">
-          Нет точек за выбранное окно. Запустите симулятор и обновите страницу.
+        <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground text-sm shadow-sm">
+          {t('replay.empty')}
         </div>
       ) : null}
 
       {!loading && chartData.length > 0 ? (
         <>
-          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Таймлайн</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">{t('replay.timeline')}</p>
                 <p className="text-sm font-mono text-foreground">
-                  {atScrub ? formatAxisTime(atScrub.t) : '—'} · точка {scrubIdx + 1} / {chartData.length}
+                  {atScrub ? formatAxisTime(atScrub.t) : '—'} · {t('replay.point')} {scrubIdx + 1} /{' '}
+                  {chartData.length}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setScrubIdx(incidentIdx)}
-                className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-2 rounded-lg text-sm font-medium border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                className="inline-flex items-center gap-2 self-start sm:self-auto px-3 py-2 rounded-lg text-sm font-medium border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 min-h-[44px] sm:min-h-0"
               >
-                <SkipBack className="w-4 h-4" />
-                К началу инцидента
+                <SkipBack className="w-4 h-4" aria-hidden />
+                {t('replay.incidentBtn')}
               </button>
             </div>
             <input
@@ -266,24 +283,24 @@ export default function Replay() {
               max={Math.max(0, chartData.length - 1)}
               value={Math.min(scrubIdx, chartData.length - 1)}
               onChange={(e) => setScrubIdx(Number(e.target.value))}
-              aria-label="Позиция на таймлайне"
+              aria-label={t('replay.timelineScrub')}
             />
             {atScrub ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono border-t border-border pt-3">
                 <div>
-                  <span className="text-muted-foreground">Health Index</span>
+                  <span className="text-muted-foreground">{t('replay.hi')}</span>
                   <div className="text-lg font-semibold tabular-nums">{Math.round(atScrub.health)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Скорость, км/ч</span>
+                  <span className="text-muted-foreground">{t('replay.speed')}</span>
                   <div className="text-lg font-semibold tabular-nums">{atScrub.speed.toFixed(1)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Температура, °C</span>
+                  <span className="text-muted-foreground">{t('replay.temp')}</span>
                   <div className="text-lg font-semibold tabular-nums">{atScrub.temp.toFixed(1)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Тормоза, бар</span>
+                  <span className="text-muted-foreground">{t('replay.brake')}</span>
                   <div className="text-lg font-semibold tabular-nums">{atScrub.brake.toFixed(2)}</div>
                 </div>
               </div>
@@ -292,9 +309,9 @@ export default function Replay() {
 
           <div className="space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Health Index
+              {t('replay.hi')}
             </h2>
-            <div className={cn(chartWrap, 'rounded-xl border border-border bg-card p-2')}>
+            <div className={cn(chartWrap, 'rounded-xl border border-border bg-card p-2 shadow-sm')}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border opacity-50" />
@@ -308,7 +325,7 @@ export default function Replay() {
                   <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} width={36} />
                   <Tooltip
                     labelFormatter={(ts) => formatAxisTime(ts)}
-                    formatter={(v) => [Math.round(v), 'HI']}
+                    formatter={(v) => [Math.round(v), t('replay.chartShortHi')]}
                     contentStyle={{
                       background: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -325,20 +342,20 @@ export default function Replay() {
             </div>
 
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Ключевые параметры
+              {t('replay.params')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { key: 'speed', label: 'Скорость (км/ч)', color: 'hsl(199 89% 48%)' },
-                { key: 'temp', label: 'Температура двигателя (°C)', color: 'hsl(25 95% 53%)' },
-                { key: 'brake', label: 'Давление тормозов (бар)', color: 'hsl(280 65% 60%)' },
+                { key: 'speed', labelKey: 'replay.chartSpeedLong', color: 'hsl(199 89% 48%)' },
+                { key: 'temp', labelKey: 'replay.chartTempLong', color: 'hsl(25 95% 53%)' },
+                { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 60%)' },
               ].map((spec) => (
                 <div
                   key={spec.key}
                   className="rounded-xl border border-border bg-card p-2 min-h-[200px] flex flex-col"
                 >
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 pt-1 pb-2">
-                    {spec.label}
+                    {t(spec.labelKey)}
                   </p>
                   <div className="flex-1 min-h-[160px]">
                     <ResponsiveContainer width="100%" height="100%">

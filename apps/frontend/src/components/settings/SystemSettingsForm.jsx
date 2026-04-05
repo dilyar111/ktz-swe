@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || '';
 
@@ -8,6 +9,7 @@ const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 
  * Health weights + alert thresholds editor (shared by admin settings page).
  */
 export default function SystemSettingsForm({ className }) {
+  const { t } = useI18n();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,9 +82,7 @@ export default function SystemSettingsForm({ className }) {
 
   if (!settings) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-12">
-        Не удалось загрузить настройки с сервера.
-      </p>
+      <p className="text-sm text-muted-foreground text-center py-12">{t('systemSettings.loadError')}</p>
     );
   }
 
@@ -90,7 +90,7 @@ export default function SystemSettingsForm({ className }) {
     <div className={cn('space-y-4', className)}>
       <div className="flex items-center gap-2">
         <Settings className="w-5 h-5 text-primary shrink-0" />
-        <h2 className="text-lg font-semibold tracking-tight">Параметры движка здоровья и алертов</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t('systemSettings.title')}</h2>
       </div>
 
       <div className="flex border-b border-border bg-muted/20 rounded-t-lg overflow-hidden">
@@ -104,7 +104,7 @@ export default function SystemSettingsForm({ className }) {
               : 'border-transparent text-muted-foreground hover:text-foreground'
           )}
         >
-          Веса подсистем
+          {t('systemSettings.tabWeights')}
         </button>
         <button
           type="button"
@@ -116,7 +116,7 @@ export default function SystemSettingsForm({ className }) {
               : 'border-transparent text-muted-foreground hover:text-foreground'
           )}
         >
-          Пороги алертов
+          {t('systemSettings.tabThresholds')}
         </button>
       </div>
 
@@ -183,7 +183,7 @@ export default function SystemSettingsForm({ className }) {
           className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow flex items-center gap-2 transition-colors disabled:opacity-50"
         >
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Сохранить
+          {t('systemSettings.save')}
         </button>
       </div>
     </div>

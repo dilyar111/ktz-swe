@@ -1,33 +1,34 @@
 import React from 'react';
 import { Gauge, Thermometer, CircleDot, Fuel, Zap, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
 const PROFILES = {
   KZ8A: [
     {
       key: 'speed',
-      label: 'Скорость',
+      labelKey: 'metrics.speed',
       unit: 'km/h',
       icon: <Gauge className="h-4 w-4" />,
       thresholds: { warning: 95, critical: 110 },
     },
     {
       key: 'engine_temp',
-      label: 'Темп-ра',
+      labelKey: 'metrics.engineTempShort',
       unit: '°C',
       icon: <Thermometer className="h-4 w-4" />,
       thresholds: { warning: 85, critical: 95 },
     },
     {
       key: 'brake_pressure',
-      label: 'Тормоз',
+      labelKey: 'metrics.brake',
       unit: 'bar',
       icon: <CircleDot className="h-4 w-4" />,
       thresholds: { warning: 4.5, critical: 3.5, inverted: true },
     },
     {
       key: 'fuel',
-      label: 'Топливо',
+      labelKey: 'metrics.fuel',
       unit: '%',
       icon: <Fuel className="h-4 w-4" />,
       optional: true,
@@ -35,14 +36,14 @@ const PROFILES = {
     },
     {
       key: 'voltage',
-      label: 'Конт. напряж.',
+      labelKey: 'metrics.voltageKz',
       unit: 'V',
       icon: <Zap className="h-4 w-4" />,
       thresholds: { warning: 26000, critical: 29000 },
     },
     {
       key: 'current',
-      label: 'Ток тяги',
+      labelKey: 'metrics.tractionCurrent',
       unit: 'A',
       icon: <Activity className="h-4 w-4" />,
       thresholds: { warning: 900, critical: 1100 },
@@ -51,42 +52,42 @@ const PROFILES = {
   TE33A: [
     {
       key: 'speed',
-      label: 'Скорость',
+      labelKey: 'metrics.speed',
       unit: 'km/h',
       icon: <Gauge className="h-4 w-4" />,
       thresholds: { warning: 75, critical: 90 },
     },
     {
       key: 'engine_temp',
-      label: 'Темп-ра',
+      labelKey: 'metrics.engineTempShort',
       unit: '°C',
       icon: <Thermometer className="h-4 w-4" />,
       thresholds: { warning: 90, critical: 100 },
     },
     {
       key: 'brake_pressure',
-      label: 'Тормоз',
+      labelKey: 'metrics.brake',
       unit: 'bar',
       icon: <CircleDot className="h-4 w-4" />,
       thresholds: { warning: 4.5, critical: 3.5, inverted: true },
     },
     {
       key: 'fuel',
-      label: 'Топливо',
+      labelKey: 'metrics.fuel',
       unit: '%',
       icon: <Fuel className="h-4 w-4" />,
       thresholds: { warning: 25, critical: 10, inverted: true },
     },
     {
       key: 'voltage',
-      label: 'Напряж.',
+      labelKey: 'metrics.voltage',
       unit: 'V',
       icon: <Zap className="h-4 w-4" />,
       thresholds: { warning: 520, critical: 480, inverted: true },
     },
     {
       key: 'current',
-      label: 'Ток тяги',
+      labelKey: 'metrics.tractionCurrent',
       unit: 'A',
       icon: <Activity className="h-4 w-4" />,
       thresholds: { warning: 700, critical: 900 },
@@ -128,6 +129,7 @@ const statusClasses = {
 const trendArrows = { up: '↑', down: '↓', stable: '→' };
 
 export function MetricCards({ metrics, history, locomotiveType = 'KZ8A' }) {
+  const { t } = useI18n();
   if (!metrics) return null;
   const configs = PROFILES[locomotiveType] || PROFILES.KZ8A;
 
@@ -143,7 +145,9 @@ export function MetricCards({ metrics, history, locomotiveType = 'KZ8A' }) {
             >
               <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
                 {config.icon}
-                <span className="text-xs font-semibold uppercase tracking-wider truncate">{config.label}</span>
+                <span className="text-xs font-semibold uppercase tracking-wider truncate">
+                  {t(config.labelKey)}
+                </span>
               </div>
               <span className="text-sm text-muted-foreground">—</span>
             </div>
@@ -163,7 +167,7 @@ export function MetricCards({ metrics, history, locomotiveType = 'KZ8A' }) {
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 {config.icon}
                 <span className="text-xs font-semibold uppercase tracking-wider truncate opacity-80">
-                  {config.label}
+                  {t(config.labelKey)}
                 </span>
               </div>
               <span

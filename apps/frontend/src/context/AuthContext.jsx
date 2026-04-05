@@ -34,13 +34,14 @@ const AuthContext = createContext(
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(/** @type {AuthUser | null} */ (readStoredUser));
 
+  /** @returns {{ ok: true } | { ok: false, errorKey: string }} */
   const login = useCallback((username, password) => {
     const key = String(username || '')
       .trim()
       .toLowerCase();
     const account = DEMO_ACCOUNTS[key];
     if (!account || account.password !== password) {
-      return { ok: false, error: 'Неверный логин или пароль' };
+      return { ok: false, errorKey: 'auth.invalidCredentials' };
     }
     const next = {
       username: key,

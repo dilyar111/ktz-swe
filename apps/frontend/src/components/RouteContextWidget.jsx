@@ -1,5 +1,6 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn, SeverityIcon } from '@/lib/utils';
+import { useI18n } from '@/i18n/I18nContext';
 
 /**
  * Human-readable segment id for display (backend sends e.g. "main-line").
@@ -32,6 +33,8 @@ export function formatSegmentName(id) {
  * }} props
  */
 export default function RouteContextWidget({ routeContext, speedKmh, className }) {
+  const { t } = useI18n();
+
   if (!routeContext || typeof routeContext !== 'object') {
     return (
       <div
@@ -40,7 +43,7 @@ export default function RouteContextWidget({ routeContext, speedKmh, className }
           className
         )}
       >
-        Route context will appear when telemetry includes segment data.
+        {t('route.empty')}
       </div>
     );
   }
@@ -75,40 +78,39 @@ export default function RouteContextWidget({ routeContext, speedKmh, className }
     >
       <div className="border-b border-border/70 px-4 py-2.5 bg-muted/30">
         <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
-          Segment
+          {t('route.segment')}
         </p>
         <p className="text-base font-semibold tracking-tight mt-0.5">{segmentLabel}</p>
       </div>
 
       <div className="px-4 py-3 space-y-3 text-sm">
         <div className="flex justify-between gap-3 text-muted-foreground">
-          <span>Position</span>
+          <span>{t('route.position')}</span>
           <span className="font-mono text-foreground tabular-nums">{routeContext.currentPositionLabel}</span>
         </div>
         <div className="flex justify-between gap-3 text-muted-foreground">
-          <span>Next</span>
+          <span>{t('route.next')}</span>
           <span className="text-foreground text-right leading-snug">{routeContext.nextSegmentLabel}</span>
         </div>
 
         <div className="pt-1 space-y-1.5">
-          <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Speed & limit</p>
+          <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">{t('route.speedLimit')}</p>
           <div className="flex justify-between gap-3">
-            <span className="text-muted-foreground">Speed</span>
+            <span className="text-muted-foreground">{t('route.speed')}</span>
             <span className="font-mono tabular-nums text-foreground">
-              {Number.isFinite(speed) ? Math.round(speed) : '—'} km/h
+              {Number.isFinite(speed) ? Math.round(speed) : '—'} {t('route.unitKmh')}
             </span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="text-muted-foreground">Limit</span>
+            <span className="text-muted-foreground">{t('route.limit')}</span>
             <span className="font-mono tabular-nums text-foreground">
-              {Number.isFinite(limit) && limit > 0 ? Math.round(limit) : '—'} km/h
+              {Number.isFinite(limit) && limit > 0 ? Math.round(limit) : '—'} {t('route.unitKmh')}
             </span>
           </div>
           {over && delta != null && delta > 0 ? (
-            <p className="text-[11px] font-mono text-status-critical pt-0.5 text-right leading-tight">
-              <span aria-hidden>⚠️ </span>
-              {' '}
-              Exceeding by +{delta} km/h
+            <p className="text-[11px] font-mono text-status-critical pt-0.5 text-right leading-tight inline-flex items-center justify-end gap-1 flex-wrap">
+              <SeverityIcon severity="critical" />
+              {t('route.exceed', { delta })}
             </p>
           ) : null}
           <div className="h-2.5 w-full rounded-full bg-muted/80 overflow-hidden border border-border/60 mt-2">
@@ -132,8 +134,8 @@ export default function RouteContextWidget({ routeContext, speedKmh, className }
                 : 'border-status-warning/40 bg-status-warning/10 text-status-warning'
             )}
           >
-            <span className="font-semibold mr-1" aria-hidden>
-              ⚠️
+            <span className="font-semibold mr-1 inline-flex items-center" aria-hidden>
+              <SeverityIcon severity={over ? 'critical' : 'warning'} />
             </span>
             {routeContext.restrictionReason}
           </div>
