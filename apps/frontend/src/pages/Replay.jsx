@@ -189,6 +189,14 @@ export default function Replay() {
   const scrubT = atScrub?.t;
   const incidentIdx = useMemo(() => incidentStartIndex(chartData), [chartData]);
 
+  /** HK-036 — Δ rule-based HI from first point in loaded window to scrub (jury-facing, no extra API). */
+  const replayHealthDelta = useMemo(() => {
+    if (chartData.length < 2 || scrubIdx < 1) return null;
+    const h0 = chartData[0].health;
+    const h1 = chartData[scrubIdx].health;
+    return Math.round(h1 - h0);
+  }, [chartData, scrubIdx]);
+
   const chartWrap = 'h-[200px] w-full min-w-0';
 
   return (
@@ -320,6 +328,11 @@ export default function Replay() {
                   <div className="text-lg font-semibold tabular-nums">{atScrub.brake.toFixed(2)}</div>
                 </div>
               </div>
+            ) : null}
+            {replayHealthDelta != null ? (
+              <p className="text-xs text-violet-600 dark:text-violet-400 border-t border-border pt-2 mt-2 leading-relaxed">
+                {t('replay.intelligenceDelta', { delta: String(replayHealthDelta > 0 ? '+' : '') + replayHealthDelta })}
+              </p>
             ) : null}
           </div>
 

@@ -8,6 +8,7 @@ import { DigitalTwin } from '@/components/cockpit/DigitalTwin';
 import { RecommendationsPanel } from '@/components/cockpit/RecommendationsPanel';
 import HealthBreakdownWidget from '@/components/HealthBreakdownWidget';
 import RiskScoreWidget from '@/components/RiskScoreWidget';
+import IntelligenceInsightWidget from '@/components/cockpit/IntelligenceInsightWidget';
 import RouteContextWidget from '@/components/RouteContextWidget';
 import ConnectionStatusBadge from '@/components/ConnectionStatusBadge';
 import { cn, SeverityIcon } from '@/lib/utils';
@@ -143,6 +144,8 @@ export default function Cockpit() {
             recommendations={data.recommendations}
             healthStatus={data.healthStatus}
           />
+
+          <IntelligenceInsightWidget intelligence={data.intelligence} />
 
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 lg:col-span-3">

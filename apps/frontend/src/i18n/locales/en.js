@@ -74,7 +74,12 @@ export default {
     recommendationsCalm:
       'Parameters are within normal range. No separate recommendations — continue monitoring.',
     recommendationsWaiting: 'Recommendations will update as telemetry arrives.',
-    recommendationSource: { alert: 'Alert', health: 'Health', scenario: 'Scenario' },
+    recommendationSource: {
+      alert: 'Alert',
+      health: 'Health',
+      scenario: 'Scenario',
+      intelligence: 'Intelligence',
+    },
     scenarios: {
       normal: 'Normal',
       warning_overheat: 'Warning: overheat',
@@ -140,6 +145,29 @@ export default {
     badgeCritical: 'critical',
     noTelemetry: 'no telemetry snapshot',
   },
+  intelligence: {
+    aria: 'Supplementary intelligence layer HK-036',
+    title: 'Intelligence (supplementary)',
+    subtitle: 'Trends and short horizon — does not replace the rule-based index',
+    unavailable: 'Intelligence layer appears after the history window fills.',
+    risk30Title: 'Risk of index drop ~30 min',
+    risk30Band: 'Level: {{band}}.',
+    risk30Projected: 'projected ≈ {{value}}',
+    riskScore: 'risk score {{v}}%',
+    risk30Disclaimer: 'Heuristic from 5-minute trend; primary metric is HK-004 index.',
+    anomaly: 'Anomaly',
+    delta5: 'Δ index (5 min)',
+    windowMin: '5 min',
+    change5Title: 'What changed (5 min)',
+    noChange5: 'No significant metric shifts in the window.',
+    band: { low: 'low', medium: 'medium', high: 'high' },
+    metric: {
+      speedKmh: 'Speed',
+      thermal: 'Thermal',
+      brakePressureBar: 'Brake',
+      signalQualityPct: 'Signal',
+    },
+  },
   route: {
     empty: 'Route context appears when telemetry is available.',
     segment: 'Segment',
@@ -186,6 +214,8 @@ export default {
     chartBrakeLong: 'Brake pressure (bar)',
     chartFuelLong: 'Fuel level (%)',
     chartLineVoltageLong: 'Catenary voltage (V)',
+    intelligenceDelta:
+      'Δ rule-based health index from window start to scrub: {{delta}} — compare with ML and subsystems on the cockpit.',
   },
   report: {
     title: 'Incident report',

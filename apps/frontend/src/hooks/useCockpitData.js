@@ -77,6 +77,7 @@ function buildCockpitModel(locomotiveType, snapshot, health, alerts = []) {
     metrics: normalizeMetrics(snapshot, locomotiveType),
     alerts: list,
     recommendations: Array.isArray(health.recommendations) ? health.recommendations : [],
+    intelligence: health.intelligence ?? null,
     raw: { snapshot, health },
   };
 }

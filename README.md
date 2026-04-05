@@ -175,4 +175,5 @@ In the UI, switch the profile in the header to match the simulator stream.
 | Docker Compose (backend + frontend + simulator) | ✅ ready |
 | OpenAPI + Swagger (`/openapi.json`, `/docs/`) | ✅ ready |
 | Optional ML (`ml/`, `GET /api/ml/risk`) | ✅ ready (host Python) |
+| HK-036 supplementary intelligence (trend / 30‑min risk heuristic / 5‑min Δ / anomaly) | ✅ ready — rule-based health remains primary |
 | PostgreSQL persistence | 🔜 not in hackathon scope |

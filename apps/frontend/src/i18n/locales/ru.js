@@ -83,7 +83,12 @@ export default {
     recommendationsCalm:
       'Показатели в штатном коридоре. Отдельных рекомендаций нет — продолжайте наблюдение.',
     recommendationsWaiting: 'Рекомендации уточняются по мере поступления телеметрии.',
-    recommendationSource: { alert: 'Алерт', health: 'Здоровье', scenario: 'Сценарий' },
+    recommendationSource: {
+      alert: 'Алерт',
+      health: 'Здоровье',
+      scenario: 'Сценарий',
+      intelligence: 'Интеллект',
+    },
     scenarios: {
       normal: 'Норма',
       warning_overheat: 'Предупреждение: перегрев',
@@ -150,6 +155,29 @@ export default {
     badgeCritical: 'критично',
     noTelemetry: 'нет снимка телеметрии',
   },
+  intelligence: {
+    aria: 'Дополнительный интеллектуальный слой HK-036',
+    title: 'Интеллект (дополнительно)',
+    subtitle: 'Тренды и короткий горизонт — не заменяют rule-based индекс',
+    unavailable: 'Слой интеллекта появится после накопления окна истории.',
+    risk30Title: 'Риск снижения индекса ~30 мин',
+    risk30Band: 'Уровень: {{band}}.',
+    risk30Projected: 'прогноз ≈ {{value}}',
+    riskScore: 'оценка риска {{v}}%',
+    risk30Disclaimer: 'Эвристика по тренду за 5 мин; первичный показатель — индекс HK-004.',
+    anomaly: 'Аномальность',
+    delta5: 'Δ индекса (5 мин)',
+    windowMin: '5 мин',
+    change5Title: 'Что изменилось (5 мин)',
+    noChange5: 'Заметных сдвигов ключевых метрик в окне нет.',
+    band: { low: 'низкий', medium: 'средний', high: 'высокий' },
+    metric: {
+      speedKmh: 'Скорость',
+      thermal: 'Тепло',
+      brakePressureBar: 'Тормоз',
+      signalQualityPct: 'Связь',
+    },
+  },
   route: {
     empty: 'Контекст маршрута появится после получения телеметрии.',
     segment: 'Участок',
@@ -195,6 +223,8 @@ export default {
     chartBrakeLong: 'Давление тормозов (бар)',
     chartFuelLong: 'Уровень топлива (%)',
     chartLineVoltageLong: 'Напряжение КС (В)',
+    intelligenceDelta:
+      'Δ индекса (rule-based) от начала окна к выбранной точке: {{delta}} — сравнивайте с ML и подсистемами на кокпите.',
   },
   report: {
     title: 'Отчёт по инциденту',

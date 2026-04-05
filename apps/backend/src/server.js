@@ -9,6 +9,7 @@ const { initSocket, emitToAll } = require('./socket');
 const { HistoryBuffer } = require('./historyBuffer');
 const { computeHealthForClient } = require('./health');
 const { buildRecommendations } = require('./recommendations/buildRecommendations');
+const { buildIntelligence } = require('./intelligence/buildIntelligence');
 const { evaluateAlerts } = require('./alerts');
 const { updateAlertsForLocomotive, getActiveAlerts, ackAlert } = require('./alerts/store');
 const { rememberCurrent, getCurrentEntry } = require('./currentStore');
@@ -174,8 +175,16 @@ app.post('/api/telemetry/ingest', (req, res) => {
   const activeAlerts = updateAlertsForLocomotive(locomotiveType, locomotiveId, freshAlerts);
 
   const healthBase = computeHealthForClient(snapshotWithRoute);
-  const recommendations = buildRecommendations(snapshotWithRoute, healthBase, activeAlerts);
-  const health = { ...healthBase, recommendations };
+  const intelligence = buildIntelligence(
+    snapshotWithRoute,
+    healthBase,
+    history,
+    locomotiveType,
+    locomotiveId,
+    ts
+  );
+  const recommendations = buildRecommendations(snapshotWithRoute, healthBase, activeAlerts, intelligence);
+  const health = { ...healthBase, recommendations, intelligence };
   rememberCurrent(snapshotWithRoute, health, activeAlerts);
 
   const alertsPayload = {

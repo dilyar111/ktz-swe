@@ -199,6 +199,17 @@ function fromScenario(snapshot, alertSubsystems) {
       subsystem: 'thermal',
       _dedupe: 'scenario:critical',
     });
+  } else if (raw === 'warning_overheat') {
+    if (skip.has('thermal')) return [];
+    rows.push({
+      severity: 'warning',
+      title: 'Сценарий: нарастание теплового режима',
+      message:
+        'Имитируется выход температуры в зону предупреждения. Снизьте тягу, проверьте вентилятор/ОЖ и убедитесь, что тренд не перерастает в критический без вмешательства.',
+      source: 'scenario',
+      subsystem: 'thermal',
+      _dedupe: 'scenario:warning_overheat',
+    });
   } else if (raw === 'highload') {
     if (skip.has('traction') || skip.has('electrical')) return [];
     rows.push({
@@ -216,24 +227,53 @@ function fromScenario(snapshot, alertSubsystems) {
 }
 
 /**
+ * HK-036 — optional intelligence layer: add one high-signal hint when risk band is elevated.
+ * @param {Record<string, unknown> | null | undefined} intelligence
+ */
+function fromIntelligence(intelligence) {
+  if (!intelligence || typeof intelligence !== 'object') return [];
+  const risk = intelligence.riskNext30Min;
+  const band = risk && typeof risk === 'object' ? risk.band : null;
+  const hint = intelligence.smartHint;
+  if (!hint || typeof hint !== 'object') return [];
+  const title = typeof hint.title === 'string' ? hint.title : '';
+  const detail = typeof hint.detail === 'string' ? hint.detail : '';
+  if (!title.trim() || !detail.trim()) return [];
+  if (band !== 'high' && band !== 'medium') return [];
+  const severity = band === 'high' ? 'warning' : 'info';
+  return [
+    {
+      severity,
+      title: `Интеллект (HK-036): ${title}`,
+      message: `${detail} (Первичный индекс — rule-based health; прогноз — эвристика по тренду 5 мин.)`,
+      source: /** @type {'intelligence'} */ ('intelligence'),
+      subsystem: 'general',
+      _dedupe: 'intelligence:hint',
+    },
+  ];
+}
+
+/**
  * @param {Record<string, unknown>} snapshot
  * @param {Record<string, unknown>} health
  * @param {unknown[]} alerts
+ * @param {Record<string, unknown> | null} [intelligence]
  * @returns {Array<{ severity: string, title: string, message: string, source: string, subsystem: string }>}
  */
-function buildRecommendations(snapshot, health, alerts) {
+function buildRecommendations(snapshot, health, alerts, intelligence) {
   const alertRows = fromAlerts(alerts);
   const subsystemsWithAlerts = new Set(
     alertRows.map((r) => r.subsystem).filter((s) => s && s !== 'general')
   );
   const healthRows = fromHealth(health, subsystemsWithAlerts);
   const scenarioRows = fromScenario(snapshot, subsystemsWithAlerts);
+  const intelRows = fromIntelligence(intelligence);
 
-  const combined = [...alertRows, ...healthRows, ...scenarioRows];
+  const combined = [...alertRows, ...healthRows, ...scenarioRows, ...intelRows];
   combined.sort((a, b) => {
     const dr = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity];
     if (dr !== 0) return dr;
-    const src = { alert: 0, health: 1, scenario: 2 };
+    const src = { alert: 0, health: 1, intelligence: 2, scenario: 3 };
     return (src[a.source] ?? 9) - (src[b.source] ?? 9);
   });
 
