@@ -195,6 +195,8 @@ export default {
     },
   },
   route: {
+    operatorNarrative:
+      'Dispatch context: where the train is on the line, next segment, and whether speed is within the published limit.',
     empty: 'Route context appears when telemetry is available.',
     segment: 'Segment',
     position: 'Position',
@@ -215,6 +217,18 @@ export default {
   replay: {
     title: 'Replay & history',
     subtitle: 'from history API',
+    profileContextLabel: 'Locomotive context',
+    profileNarrativeKZ8A:
+      'Electric freight profile (25 kV): charts emphasize catenary voltage, thermal and brake trends aligned with the KZ8A health engine.',
+    profileNarrativeTE33A:
+      'Diesel–electric Evolution profile: charts emphasize power-unit heat, traction current, brake and fuel — aligned with TE33A weights (thermal-heavy).',
+    paramsHintKZ8A: 'Electric: speed, heat proxy, brake, catenary voltage — same signals as the KZ8A cockpit breakdown.',
+    paramsHintTE33A:
+      'Diesel: speed, combined power-unit temperature, traction motor current, brake — distinct from the electric profile.',
+    chartTractionLong: 'Traction current (A)',
+    traction: 'Traction, A',
+    lineVoltageShort: 'Catenary, V',
+    fuelShort: 'Fuel, %',
     timeline: 'Timeline',
     point: 'point',
     incidentBtn: 'Jump to incident',
@@ -255,7 +269,10 @@ export default {
     resetStandardWindow: 'Reset to standard window',
     loading: 'Loading report…',
     summaryTitle: 'Summary before export',
+    profileDescription: 'Profile',
     period: 'Period',
+    contributorSubsystem: 'Subsystem',
+    exportSuccess: 'File download started.',
     exportJson: 'Export JSON',
     exportCsv: 'Export CSV',
     telemetryPoints: 'Telemetry points',
@@ -351,6 +368,8 @@ export default {
   admin: {
     title: 'Administration',
     subtitle: 'System parameters. Admin role only.',
+    apiDocsLine: 'API reference (Swagger UI)',
+    apiDocsHint: 'Same host as the backend — e.g. http://localhost:5000/docs when running locally.',
   },
   alertsPage: {
     title: 'Incident center',

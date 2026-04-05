@@ -206,6 +206,8 @@ export default {
     },
   },
   route: {
+    operatorNarrative:
+      'Контекст диспетчера: участок, следующий сегмент и соблюдение ограничения скорости.',
     empty: 'Контекст маршрута появится после получения телеметрии.',
     segment: 'Участок',
     position: 'Положение',
@@ -226,6 +228,19 @@ export default {
   replay: {
     title: 'Повтор и архив',
     subtitle: 'данные из API истории',
+    profileContextLabel: 'Контекст локомотива',
+    profileNarrativeKZ8A:
+      'Профиль электровоза (25 кВ): графики по КС, теплу и тормозам согласованы с движком здоровья KZ8A.',
+    profileNarrativeTE33A:
+      'Профиль дизель-электрический Evolution: тепло силовой установки, ток тяги, тормоз и топливо — веса TE33A (акцент на thermal).',
+    paramsHintKZ8A:
+      'Электровоз: скорость, тепловой прокси, тормоз, напряжение КС — те же сигналы, что в разборе на кокпите.',
+    paramsHintTE33A:
+      'Тепловоз: скорость, совмещённая температура СУ, ток тяговых двигателей, тормоз — отдельно от электропрофиля.',
+    chartTractionLong: 'Ток тяги (А)',
+    traction: 'Тяга, А',
+    lineVoltageShort: 'КС, В',
+    fuelShort: 'Топливо, %',
     timeline: 'Временная шкала',
     point: 'точка',
     incidentBtn: 'К началу инцидента',
@@ -266,7 +281,10 @@ export default {
     resetStandardWindow: 'Сбросить на стандартное окно',
     loading: 'Загрузка отчёта…',
     summaryTitle: 'Сводка перед экспортом',
+    profileDescription: 'Профиль',
     period: 'Период',
+    contributorSubsystem: 'Подсистема',
+    exportSuccess: 'Загрузка файла началась.',
     exportJson: 'Экспорт JSON',
     exportCsv: 'Экспорт CSV',
     telemetryPoints: 'Точек телеметрии',
@@ -363,6 +381,8 @@ export default {
   admin: {
     title: 'Администрирование',
     subtitle: 'Системные параметры. Доступно только роли admin.',
+    apiDocsLine: 'Документация API (Swagger UI)',
+    apiDocsHint: 'Тот же хост, что и backend — например http://localhost:5000/docs при локальном запуске.',
   },
   alertsPage: {
     title: 'Центр инцидентов',

@@ -194,7 +194,7 @@ export function AppShell() {
               to="/admin/settings"
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium transition-colors border min-h-[44px] sm:min-h-0',
+                  'ktz-op-btn flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-md text-sm font-medium transition-colors border min-h-[44px] sm:min-h-0',
                   isActive
                     ? 'bg-ktz-gold/10 text-ktz-gold border-ktz-gold/35'
                     : 'border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground'

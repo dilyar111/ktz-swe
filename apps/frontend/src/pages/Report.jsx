@@ -96,6 +96,7 @@ export default function Report() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [exportNotice, setExportNotice] = useState(false);
 
   const queryParams = useMemo(
     () => buildReportQuery(locomotiveType, locomotiveId, windowMin, incidentWindow),
@@ -143,6 +144,8 @@ export default function Report() {
       a.download = `ktz-incident-report-${locomotiveType}-${locomotiveId}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
+      setExportNotice(true);
+      window.setTimeout(() => setExportNotice(false), 3500);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -262,6 +265,16 @@ export default function Report() {
         </div>
       ) : null}
 
+      {exportNotice ? (
+        <div
+          className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          {t('report.exportSuccess')}
+        </div>
+      ) : null}
+
       {loading && !report ? (
         <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm">
           {t('report.loading')}
@@ -272,9 +285,17 @@ export default function Report() {
         <>
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div>
+              <div className="space-y-2 min-w-0">
                 <h2 className="text-sm font-semibold text-foreground">{t('report.summaryTitle')}</h2>
-                <p className="text-xs text-muted-foreground mt-1">
+                {meta?.profileDescription ? (
+                  <p className="text-sm text-foreground/90 leading-snug">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-2">
+                      {t('report.profileDescription')} ({meta.locomotiveType})
+                    </span>
+                    {meta.profileDescription}
+                  </p>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
                   {t('report.period')}: {meta?.from ? new Date(meta.from).toLocaleString() : '—'} —{' '}
                   {meta?.to ? new Date(meta.to).toLocaleString() : '—'}
                 </p>
@@ -299,7 +320,7 @@ export default function Report() {
               </div>
             </div>
 
-            <dl className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono border-t border-border/60 pt-4">
+            <dl className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs border-t border-border/60 pt-4">
               <div>
                 <dt className="text-muted-foreground">{t('report.telemetryPoints')}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{meta?.sampleCount ?? 0}</dd>
@@ -359,7 +380,14 @@ export default function Report() {
                   <ul className="text-sm space-y-1.5">
                     {report.topContributors.map((c, i) => (
                       <li key={i} className="flex justify-between gap-2">
-                        <span className="text-foreground/90 truncate">{c.name}</span>
+                        <span className="text-foreground/90 min-w-0">
+                          <span className="font-medium">{c.name}</span>
+                          {c.subsystem ? (
+                            <span className="text-muted-foreground text-xs ml-1">
+                              · {t('report.contributorSubsystem')}: {c.subsystem}
+                            </span>
+                          ) : null}
+                        </span>
                         <span className="text-muted-foreground tabular-nums shrink-0">
                           −{c.impact}
                         </span>

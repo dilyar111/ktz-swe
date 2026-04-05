@@ -48,6 +48,19 @@ function formatAxisTime(ts) {
   });
 }
 
+/** Units for replay parameter tooltips — keeps TE33A vs KZ8A charts self-explanatory for demos. */
+function formatReplayTooltipValue(value, key) {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return '—';
+  if (key === 'speed') return `${v.toFixed(1)} km/h`;
+  if (key === 'temp') return `${v.toFixed(1)} °C`;
+  if (key === 'tractionCurrent') return `${v.toFixed(0)} A`;
+  if (key === 'brake') return `${v.toFixed(2)} bar`;
+  if (key === 'lineVoltage') return `${v.toFixed(0)} V`;
+  if (key === 'fuelLevel') return `${v.toFixed(1)} %`;
+  return String(Math.round(v * 10) / 10);
+}
+
 export default function Replay() {
   const { t } = useI18n();
   const showDev = useDemoControls();
@@ -110,6 +123,7 @@ export default function Replay() {
         lineVoltage: Number(snap.lineVoltageV ?? 0),
         fuelLevel: Number(snap.fuelLevelPct ?? 0),
         auxVoltage: Number(snap.voltage ?? snap.batteryVoltageV ?? 0),
+        tractionCurrent: Number(snap.tractionCurrentA ?? snap.traction_current ?? 0),
       };
     });
   }, [rawEntries, locomotiveType]);
@@ -202,9 +216,23 @@ export default function Replay() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
+        <div className="space-y-3 max-w-3xl">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('replay.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <div
+            className={cn(
+              'rounded-lg border px-4 py-3 text-sm leading-relaxed',
+              locomotiveType === 'TE33A'
+                ? 'border-amber-500/25 bg-amber-50/80 text-foreground'
+                : 'border-primary/20 bg-primary/[0.06] text-foreground'
+            )}
+            role="status"
+          >
+            <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
+              {t('replay.profileContextLabel')}
+            </p>
+            <p>{t(locomotiveType === 'TE33A' ? 'replay.profileNarrativeTE33A' : 'replay.profileNarrativeKZ8A')}</p>
+          </div>
+          <p className="text-sm text-muted-foreground">
             {locomotiveType} · {locomotiveId}
             {showDev ? (
               <>
@@ -308,25 +336,49 @@ export default function Replay() {
               aria-label={t('replay.timelineScrub')}
             />
             {atScrub ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono border-t border-border pt-3">
+              <div
+                className={cn(
+                  'grid gap-3 text-xs border-t border-border pt-3',
+                  locomotiveType === 'TE33A'
+                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+                    : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+                )}
+              >
                 <div>
-                  <span className="text-muted-foreground">{t('replay.hi')}</span>
-                  <div className="text-lg font-semibold tabular-nums">{Math.round(atScrub.health)}</div>
+                  <span className="text-muted-foreground block">{t('replay.hi')}</span>
+                  <div className="text-lg font-semibold tabular-nums font-mono">{Math.round(atScrub.health)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">{t('replay.speed')}</span>
-                  <div className="text-lg font-semibold tabular-nums">{atScrub.speed.toFixed(1)}</div>
+                  <span className="text-muted-foreground block">{t('replay.speed')}</span>
+                  <div className="text-lg font-semibold tabular-nums font-mono">{atScrub.speed.toFixed(1)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground block">
                     {locomotiveType === 'TE33A' ? t('replay.tempTe33a') : t('replay.temp')}
                   </span>
-                  <div className="text-lg font-semibold tabular-nums">{atScrub.temp.toFixed(1)}</div>
+                  <div className="text-lg font-semibold tabular-nums font-mono">{atScrub.temp.toFixed(1)}</div>
                 </div>
+                {locomotiveType === 'TE33A' ? (
+                  <div>
+                    <span className="text-muted-foreground block">{t('replay.traction')}</span>
+                    <div className="text-lg font-semibold tabular-nums font-mono">{atScrub.tractionCurrent.toFixed(0)}</div>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-muted-foreground block">{t('replay.lineVoltageShort')}</span>
+                    <div className="text-lg font-semibold tabular-nums font-mono">{atScrub.lineVoltage.toFixed(0)}</div>
+                  </div>
+                )}
                 <div>
-                  <span className="text-muted-foreground">{t('replay.brake')}</span>
-                  <div className="text-lg font-semibold tabular-nums">{atScrub.brake.toFixed(2)}</div>
+                  <span className="text-muted-foreground block">{t('replay.brake')}</span>
+                  <div className="text-lg font-semibold tabular-nums font-mono">{atScrub.brake.toFixed(2)}</div>
                 </div>
+                {locomotiveType === 'TE33A' ? (
+                  <div>
+                    <span className="text-muted-foreground block">{t('replay.fuelShort')}</span>
+                    <div className="text-lg font-semibold tabular-nums font-mono">{atScrub.fuelLevel.toFixed(1)}</div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {showDev && replayHealthDelta != null ? (
@@ -370,23 +422,28 @@ export default function Replay() {
               </ResponsiveContainer>
             </div>
 
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              {t('replay.params')}
-            </h2>
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('replay.params')}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {locomotiveType === 'TE33A' ? t('replay.paramsHintTE33A') : t('replay.paramsHintKZ8A')}
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {(
                 locomotiveType === 'TE33A'
                   ? [
                       { key: 'speed', labelKey: 'replay.chartSpeedLong', color: 'hsl(199 89% 48%)' },
                       { key: 'temp', labelKey: 'replay.chartTempTe33aLong', color: 'hsl(25 95% 53%)' },
-                      { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 60%)' },
-                      { key: 'fuelLevel', labelKey: 'replay.chartFuelLong', color: 'hsl(142 55% 42%)' },
+                      { key: 'tractionCurrent', labelKey: 'replay.chartTractionLong', color: 'hsl(220 70% 45%)' },
+                      { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 48%)' },
                     ]
                   : [
                       { key: 'speed', labelKey: 'replay.chartSpeedLong', color: 'hsl(199 89% 48%)' },
                       { key: 'temp', labelKey: 'replay.chartTempLong', color: 'hsl(25 95% 53%)' },
-                      { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 60%)' },
-                      { key: 'lineVoltage', labelKey: 'replay.chartLineVoltageLong', color: 'hsl(48 96% 53%)' },
+                      { key: 'brake', labelKey: 'replay.chartBrakeLong', color: 'hsl(280 65% 48%)' },
+                      { key: 'lineVoltage', labelKey: 'replay.chartLineVoltageLong', color: 'hsl(48 96% 45%)' },
                     ]
               ).map((spec) => (
                 <div
@@ -410,6 +467,7 @@ export default function Replay() {
                         <YAxis tick={{ fontSize: 9 }} width={40} />
                         <Tooltip
                           labelFormatter={(ts) => formatAxisTime(ts)}
+                          formatter={(val) => [formatReplayTooltipValue(val, spec.key), t(spec.labelKey)]}
                           contentStyle={{
                             background: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',

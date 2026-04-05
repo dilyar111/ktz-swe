@@ -69,18 +69,13 @@ export default function RouteContextWidget({ routeContext, speedKmh, className }
   const segmentLabel = formatSegmentName(routeContext.currentSegmentId);
 
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-border bg-card/80 text-foreground shadow-sm',
-        'ring-1 ring-inset ring-white/5',
-        className
-      )}
-    >
-      <div className="border-b border-border/70 px-4 py-2.5 bg-muted/30">
+    <div className={cn('rounded-lg border border-border bg-card text-foreground shadow-sm', className)}>
+      <div className="border-b border-border px-4 py-2.5 bg-muted/40">
         <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
           {t('route.segment')}
         </p>
         <p className="text-base font-semibold tracking-tight mt-0.5">{segmentLabel}</p>
+        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{t('route.operatorNarrative')}</p>
       </div>
 
       <div className="px-4 py-3 space-y-3 text-sm">
