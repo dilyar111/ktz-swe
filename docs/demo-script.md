@@ -35,7 +35,8 @@ This starts **concurrently**: backend (`:5000`), Vite frontend (`:5173`), and th
 
 | What | URL |
 |------|-----|
-| Cockpit (main UI) | http://localhost:5173 |
+| Landing (entry) | http://localhost:5173 |
+| Cockpit (after login) | http://localhost:5173/cockpit |
 | Health check | http://localhost:5000/health |
 | Swagger UI (OpenAPI) | http://localhost:5000/docs |
 | Machine-readable OpenAPI | http://localhost:5000/openapi.json |
@@ -64,7 +65,7 @@ Mention: backend logs may show a **“System ready”** line when frontend + at 
 
 ## Minute 1 — Cockpit, normal flow
 
-1. Open **http://localhost:5173** → land on **Cockpit** (`/`).
+1. Open **http://localhost:5173** → landing → **Войти в систему** → login `operator` / `demo` → **Cockpit** at `/cockpit`.
 2. Confirm profile **KZ8A** (header) matches the simulator default stream.
 3. Point out **in one breath**:
    - **Connection badge** (online / live telemetry).

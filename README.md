@@ -25,7 +25,8 @@ npm run dev
 
 | URL | Purpose |
 |-----|---------|
-| http://localhost:5173 | Cockpit UI |
+| http://localhost:5173 | Landing → login (demo: `operator` / `demo` or `admin` / `demo`) → app |
+| http://localhost:5173/cockpit | Cockpit (requires login) |
 | http://localhost:5000/health | API health check |
 | http://localhost:5000/docs | Swagger / OpenAPI UI |
 | http://localhost:5000/openapi.json | Machine-readable spec |
