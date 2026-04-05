@@ -5,6 +5,8 @@ import { SeverityIcon } from '@/lib/utils';
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_WS_URL || 'http://localhost:5000';
 
 const POLL_MS = 5000;
+/** After any failure (HTTP 503, network, invalid body) — do not hammer the API. */
+const BACKOFF_MS = 60000;
 
 /** Align with --status-* tokens (approximate hex for canvas/SVG-free bar) */
 const COLOR_GREEN = '#2eb87c';
@@ -29,42 +31,63 @@ function riskColor(riskScore) {
 export default function RiskScoreWidget({ locoType, locomotiveId }) {
   const { t } = useI18n();
   const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId = null;
     const id = locomotiveId && String(locomotiveId).trim() ? String(locomotiveId).trim() : '';
 
-    async function fetchRisk() {
+    setLoading(true);
+    setData(null);
+
+    function scheduleNext(ms) {
+      if (timeoutId != null) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => void runFetch(), ms);
+    }
+
+    let firstFetchComplete = false;
+
+    async function runFetch() {
+      if (cancelled) return;
       try {
         const q = new URLSearchParams({ locomotiveType: locoType });
         if (id) q.set('locomotiveId', id);
         const res = await fetch(`${API_BASE}/api/ml/risk?${q.toString()}`);
-        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error('API unavailable');
+        }
+
+        const json = await res.json();
         if (cancelled) return;
-        if (!res.ok || json.mlAvailable === false) {
-          setError(
-            json.error ||
-              (res.status === 404 ? t('risk.noTelemetry') : `HTTP ${res.status}`)
-          );
+
+        if (json.mlAvailable === false || typeof json.riskScore !== 'number') {
           setData(null);
+          scheduleNext(BACKOFF_MS);
           return;
         }
-        setError(null);
+
         setData(json);
-      } catch (e) {
+        scheduleNext(POLL_MS);
+      } catch {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
           setData(null);
+        }
+        scheduleNext(BACKOFF_MS);
+      } finally {
+        if (!cancelled && !firstFetchComplete) {
+          firstFetchComplete = true;
+          setLoading(false);
         }
       }
     }
 
-    void fetchRisk();
-    const timer = setInterval(() => void fetchRisk(), POLL_MS);
+    scheduleNext(0);
+
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timeoutId != null) clearTimeout(timeoutId);
     };
   }, [locoType, locomotiveId]);
 
@@ -78,28 +101,29 @@ export default function RiskScoreWidget({ locoType, locomotiveId }) {
     return { text: t('risk.badgeNormal'), color: COLOR_GREEN, severity: 'normal' };
   }
 
-  if (error) {
-    return (
-      <div
-        className="rounded-lg border border-border/80 p-3 w-full max-w-[260px]"
-        style={{ backgroundColor: BG, fontSize: 11 }}
-      >
-        <p className="text-muted-foreground leading-snug">{t('risk.unavailable')}</p>
-        <p className="text-[10px] text-muted-foreground/70 mt-1 font-mono truncate" title={error}>
-          {error}
-        </p>
-        <p className="text-[10px] text-muted-foreground/60 mt-2">{t('risk.subtitle')}</p>
-      </div>
-    );
-  }
-
-  if (!data || typeof data.riskScore !== 'number') {
+  if (loading) {
     return (
       <div
         className="rounded-lg border border-border/80 p-3 w-full max-w-[260px] animate-pulse"
         style={{ backgroundColor: BG, fontSize: 11 }}
       >
         <p className="text-muted-foreground">{t('risk.loading')}</p>
+      </div>
+    );
+  }
+
+  if (data === null) {
+    return (
+      <div
+        className="rounded-lg border border-border/80 p-3 w-full max-w-[260px]"
+        style={{ backgroundColor: BG, fontSize: 11 }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{t('risk.label')}</span>
+          <span className="text-muted-foreground font-mono tabular-nums">—</span>
+        </div>
+        <p className="text-muted-foreground leading-snug mt-2">{t('risk.unavailable')}</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-2">{t('risk.subtitle')}</p>
       </div>
     );
   }

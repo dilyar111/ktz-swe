@@ -49,20 +49,6 @@ function formatTs(iso) {
   });
 }
 
-function timeAgo(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const diffMs = Date.now() - d.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return `${diffSec}с назад`;
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}м назад`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH}ч назад`;
-  return formatTs(iso);
-}
-
 function incidentWindowMs(alert) {
   const t = new Date(alert.timestamp).getTime();
   if (Number.isNaN(t)) {
@@ -81,27 +67,6 @@ function resolveLocoId(alert) {
   }
   const t = alert.locomotiveType;
   return DEFAULT_LOCOMOTIVE_ID[t] ?? DEFAULT_LOCOMOTIVE_ID.KZ8A;
-}
-
-function SeverityBadge({ severity, size = 'sm' }) {
-  const base = size === 'lg' ? 'px-3 py-1 text-xs' : 'px-2 py-0.5 text-[11px]';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded font-bold uppercase tracking-wider',
-        base,
-        severity === 'critical'
-          ? 'bg-status-critical/20 text-status-critical border border-status-critical/30'
-          : severity === 'warning'
-            ? 'bg-status-warning/20 text-status-warning border border-status-warning/30'
-            : 'bg-muted text-muted-foreground border border-border'
-      )}
-    >
-      {severity === 'critical' && <span className="w-1.5 h-1.5 rounded-full bg-status-critical animate-pulse" />}
-      {severity === 'warning' && <span className="w-1.5 h-1.5 rounded-full bg-status-warning" />}
-      {severity}
-    </span>
-  );
 }
 
 function StatCard({ label, value, color, icon: Icon, pulse }) {
@@ -175,12 +140,32 @@ function AckToast({ message, onDismiss }) {
 
 /**
  * Incident Center — operational alert triage (GET /api/alerts, POST /api/alerts/:id/ack).
- * HK-031: Full implementation with WebSocket real-time, summary bar, drawer, ack workflow.
  */
 export default function IncidentCenter() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const socketRef = useRef(null);
+
+  function sevLabel(s) {
+    if (!s) return '';
+    const key = `cockpit.severity.${s}`;
+    const translated = t(key);
+    return translated === key ? s : translated;
+  }
+
+  function timeAgoRelative(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const diffMs = Date.now() - d.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return t('incidents.timeAgoSec', { n: String(diffSec) });
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return t('incidents.timeAgoMin', { n: String(diffMin) });
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return t('incidents.timeAgoHour', { n: String(diffH) });
+    return formatTs(iso);
+  }
 
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -195,13 +180,11 @@ export default function IncidentCenter() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [tick, setTick] = useState(0);
 
-  // Relative timestamps ticker
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 30000);
     return () => clearInterval(id);
   }, []);
 
-  // ─── REST load ─────────────────────────────────────────────────────────────
   const loadAlerts = useCallback(async () => {
     setError(null);
     try {
@@ -232,13 +215,11 @@ export default function IncidentCenter() {
     void loadAlerts();
   }, [loadAlerts]);
 
-  // REST polling fallback every 20s
   useEffect(() => {
     const id = setInterval(() => void loadAlerts(), 20000);
     return () => clearInterval(id);
   }, [loadAlerts]);
 
-  // ─── WebSocket real-time ───────────────────────────────────────────────────
   useEffect(() => {
     const socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
     socketRef.current = socket;
@@ -249,7 +230,6 @@ export default function IncidentCenter() {
 
     socket.on('alerts:update', (payload) => {
       if (!payload || !Array.isArray(payload.alerts)) return;
-      // Apply profile filter — if we're filtering by type, skip other types
       if (
         (profileFilter === 'KZ8A' || profileFilter === 'TE33A') &&
         payload.locomotiveType !== profileFilter
@@ -257,11 +237,9 @@ export default function IncidentCenter() {
         return;
       }
       setAlerts((prev) => {
-        // Merge: update existing alerts for this locomotive, keep others
         if (!payload.locomotiveType || !payload.locomotiveId) {
           return payload.alerts;
         }
-        const updatedIds = new Set(payload.alerts.map((a) => a.id));
         const locoKey = `${payload.locomotiveType}:${payload.locomotiveId}`;
         const otherAlerts = prev.filter(
           (a) => `${a.locomotiveType}:${resolveLocoId(a)}` !== locoKey
@@ -269,7 +247,6 @@ export default function IncidentCenter() {
         return [...otherAlerts, ...payload.alerts];
       });
       setLastUpdatedAt(Date.now());
-      // Update selected panel if it's from the same locomotive
       setSelected((prev) => {
         if (!prev) return prev;
         const fresh = payload.alerts.find((a) => a.id === prev.id);
@@ -285,7 +262,6 @@ export default function IncidentCenter() {
     };
   }, [profileFilter]);
 
-  // ─── Escape key for drawer ─────────────────────────────────────────────────
   useEffect(() => {
     if (!selected) return;
     function handler(e) {
@@ -295,7 +271,6 @@ export default function IncidentCenter() {
     return () => window.removeEventListener('keydown', handler);
   }, [selected]);
 
-  // ─── Derived stats ─────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const critical = alerts.filter((a) => !a.acked && a.severity === 'critical');
     const warning = alerts.filter((a) => !a.acked && a.severity === 'warning');
@@ -308,7 +283,6 @@ export default function IncidentCenter() {
     };
   }, [alerts, tick]);
 
-  // ─── Filtered list ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = [...alerts];
     if (severityFilter === 'critical') list = list.filter((a) => a.severity === 'critical');
@@ -323,7 +297,6 @@ export default function IncidentCenter() {
     }
 
     list.sort((a, b) => {
-      // Unacked always first
       if (!a.acked && b.acked) return -1;
       if (a.acked && !b.acked) return 1;
       const sr = severityRank(a.severity) - severityRank(b.severity);
@@ -333,7 +306,6 @@ export default function IncidentCenter() {
     return list;
   }, [alerts, severityFilter, ackFilter, profileFilter]);
 
-  // ─── Navigation actions ────────────────────────────────────────────────────
   const openReplay = (alert) => {
     const { from, to } = incidentWindowMs(alert);
     const q = new URLSearchParams({
@@ -356,7 +328,6 @@ export default function IncidentCenter() {
     navigate({ pathname: '/report', search: `?${q.toString()}` });
   };
 
-  // ─── Acknowledge ───────────────────────────────────────────────────────────
   const acknowledge = async (id) => {
     setAckSubmitting(true);
     try {
@@ -368,12 +339,11 @@ export default function IncidentCenter() {
         throw new Error(text || `HTTP ${res.status}`);
       }
       const ackedAt = new Date().toISOString();
-      // Optimistic update — no reload needed
       setAlerts((prev) =>
         prev.map((a) => (a.id === id ? { ...a, acked: true, ackedAt } : a))
       );
       setSelected((prev) => (prev && prev.id === id ? { ...prev, acked: true, ackedAt } : prev));
-      setToast('Инцидент подтверждён — статус обновлён');
+      setToast(t('incidents.ackToastSuccess'));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -381,18 +351,14 @@ export default function IncidentCenter() {
     }
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-[1600px] mx-auto space-y-5">
-      {/* ── Toast ── */}
       {toast && <AckToast message={toast} onDismiss={() => setToast(null)} />}
 
-      {/* ── Header ── */}
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">Incident Center</h1>
-            {/* Live status pill */}
+            <h1 className="text-2xl font-bold tracking-tight">{t('incidents.title')}</h1>
             <div
               className={cn(
                 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border',
@@ -407,25 +373,23 @@ export default function IncidentCenter() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                   </span>
-                  <Wifi className="w-3 h-3" />
-                  Live
+                  <Wifi className="w-3 h-3" aria-hidden />
+                  {t('incidents.liveLive')}
                 </>
               ) : (
                 <>
-                  <WifiOff className="w-3 h-3" />
-                  Polling
+                  <WifiOff className="w-3 h-3" aria-hidden />
+                  {t('incidents.livePolling')}
                 </>
               )}
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Операторский экран расследования и обработки инцидентов. Нажмите на строку для деталей.
-          </p>
-          {lastUpdatedAt && (
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{t('incidents.pageSubtitle')}</p>
+          {lastUpdatedAt ? (
             <p className="text-xs text-muted-foreground/60 mt-0.5 font-mono">
-              Обновлено: {timeAgo(new Date(lastUpdatedAt).toISOString())}
+              {t('incidents.lastUpdated')}: {timeAgoRelative(new Date(lastUpdatedAt).toISOString())}
             </p>
-          )}
+          ) : null}
         </div>
         <button
           type="button"
@@ -436,53 +400,59 @@ export default function IncidentCenter() {
           }}
           className="inline-flex items-center gap-2 self-start px-3 py-2 rounded-lg text-sm font-medium border border-border bg-background hover:bg-secondary transition-colors"
         >
-          <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+          <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} aria-hidden />
           {t('incidents.refresh')}
         </button>
       </div>
 
-      {/* ── API Error ── */}
       {error ? (
-        <div className="rounded-lg border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-foreground flex items-center gap-3">
-          <AlertTriangle className="w-4 h-4 text-status-critical shrink-0" />
+        <div
+          className="rounded-lg border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-foreground flex items-center gap-3"
+          role="alert"
+          aria-live="assertive"
+        >
+          <AlertTriangle className="w-4 h-4 text-status-critical shrink-0" aria-hidden />
           <span>
-            <strong>Ошибка API.</strong> {error}
+            <strong>{t('incidents.apiError')}</strong> {error}
           </span>
           <button
             type="button"
             onClick={() => setError(null)}
             className="ml-auto text-muted-foreground hover:text-foreground"
+            aria-label={t('incidents.close')}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden />
           </button>
         </div>
       ) : null}
 
-      {/* ── Summary bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Всего алертов" value={stats.total} icon={Zap} />
+        <StatCard label={t('incidents.statTotal')} value={stats.total} icon={Zap} />
         <StatCard
-          label="Критических"
+          label={t('incidents.statCriticalLabel')}
           value={stats.critical}
           color="critical"
           icon={ShieldAlert}
           pulse
         />
-        <StatCard label="Предупреждений" value={stats.warning} color="warning" icon={AlertTriangle} />
-        <StatCard label="Не подтверждено" value={stats.unacked} icon={Clock} />
+        <StatCard
+          label={t('incidents.statWarningLabel')}
+          value={stats.warning}
+          color="warning"
+          icon={AlertTriangle}
+        />
+        <StatCard label={t('incidents.statUnackedLabel')} value={stats.unacked} icon={Clock} />
       </div>
 
-      {/* ── Filters ── */}
       <div className="rounded-xl border border-border bg-card px-4 py-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
           <span className="inline-flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider shrink-0">
-            <Filter className="w-3.5 h-3.5" />
+            <Filter className="w-3.5 h-3.5" aria-hidden />
             {t('incidents.filters')}
           </span>
 
-          {/* Severity filter */}
           <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-muted-foreground shrink-0">Уровень:</span>
+            <span className="text-muted-foreground shrink-0">{t('incidents.level')}</span>
             {[
               { label: t('incidents.filterAll'), value: 'all' },
               { label: sevLabel('critical'), value: 'critical' },
@@ -510,15 +480,16 @@ export default function IncidentCenter() {
             ))}
           </div>
 
-          <span className="text-border hidden sm:inline">|</span>
+          <span className="text-border hidden sm:inline" aria-hidden>
+            |
+          </span>
 
-          {/* Ack filter */}
           <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-muted-foreground hidden sm:inline shrink-0">Статус:</span>
+            <span className="text-muted-foreground hidden sm:inline shrink-0">{t('incidents.ack')}</span>
             {[
-              { label: 'Все', value: 'all' },
-              { label: '✓ Подтверждённые', value: 'acknowledged' },
-              { label: '⚠ Открытые', value: 'unacknowledged' },
+              { label: t('incidents.filterAll'), value: 'all' },
+              { label: t('incidents.filterAcknowledged'), value: 'acknowledged' },
+              { label: t('incidents.filterUnacknowledged'), value: 'unacknowledged' },
             ].map((o) => (
               <button
                 key={`ack-${o.value}`}
@@ -537,13 +508,14 @@ export default function IncidentCenter() {
             ))}
           </div>
 
-          <span className="text-border hidden md:inline">|</span>
+          <span className="text-border hidden md:inline" aria-hidden>
+            |
+          </span>
 
-          {/* Profile filter */}
           <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-muted-foreground hidden md:inline shrink-0">Профиль:</span>
+            <span className="text-muted-foreground hidden md:inline shrink-0">{t('incidents.profile')}</span>
             {[
-              { label: 'Все поезда', value: 'all' },
+              { label: t('incidents.filterAllTrains'), value: 'all' },
               { label: 'KZ8A', value: 'KZ8A' },
               { label: 'TE33A', value: 'TE33A' },
             ].map((o) => (
@@ -566,70 +538,58 @@ export default function IncidentCenter() {
         </div>
       </div>
 
-      {/* ── Loading ── */}
       {loading ? (
         <div className="flex items-center justify-center min-h-[240px] gap-3 text-muted-foreground text-sm font-mono">
-          <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Загрузка инцидентов…
+          <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-hidden />
+          {t('incidents.loading')}
         </div>
       ) : null}
 
-      {/* ── Empty state ── */}
       {!loading && filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/50 px-8 py-16 text-center space-y-3">
           <div className="w-14 h-14 mx-auto rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <ShieldCheck className="w-7 h-7 text-primary" />
+            <ShieldCheck className="w-7 h-7 text-primary" aria-hidden />
           </div>
           <p className="text-lg font-semibold text-foreground">
-            {alerts.length === 0
-              ? 'Нет активных алертов'
-              : 'Нет инцидентов по выбранным фильтрам'}
+            {alerts.length === 0 ? t('incidents.emptyNoAlertsTitle') : t('incidents.emptyTitle')}
           </p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {alerts.length === 0
-              ? 'Все системы в штатном режиме. При возникновении отклонений инциденты появятся здесь автоматически.'
-              : 'Переключите фильтры или переключите сценарий симулятора для генерации алертов.'}
+            {alerts.length === 0 ? t('incidents.emptyNoAlertsBody') : t('incidents.emptyHint')}
           </p>
-          {alerts.length === 0 && (
-            <p className="text-xs text-muted-foreground/60 font-mono">
-              Запустите симулятор в сценарии overheat / brake_failure для демонстрации
-            </p>
-          )}
+          {alerts.length === 0 ? (
+            <p className="text-xs text-muted-foreground/60 font-mono">{t('incidents.emptySimulatorHint')}</p>
+          ) : null}
         </div>
       ) : null}
 
-      {/* ── Alert table ── */}
       {!loading && filtered.length > 0 ? (
         <div className="rounded-xl border border-border overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 border-b border-border">
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-4 py-3 font-semibold w-4" />
-                <th className="px-4 py-3 font-semibold">Уровень</th>
-                <th className="px-4 py-3 font-semibold">Подсистема</th>
-                <th className="px-4 py-3 font-semibold">Код</th>
-                <th className="px-4 py-3 font-semibold hidden md:table-cell">Поезд</th>
-                <th className="px-4 py-3 font-semibold">Заголовок</th>
-                <th className="px-4 py-3 font-semibold hidden lg:table-cell">Время</th>
-                <th className="px-4 py-3 font-semibold">Статус</th>
+                <th className="px-4 py-3 font-semibold">{t('incidents.colSeverity')}</th>
+                <th className="px-4 py-3 font-semibold">{t('incidents.colSubsystem')}</th>
+                <th className="px-4 py-3 font-semibold">{t('incidents.colCode')}</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">{t('incidents.colTrain')}</th>
+                <th className="px-4 py-3 font-semibold">{t('incidents.colTitle')}</th>
+                <th className="px-4 py-3 font-semibold hidden lg:table-cell">{t('incidents.colTime')}</th>
+                <th className="px-4 py-3 font-semibold">{t('incidents.colStatus')}</th>
                 <th className="px-4 py-3 w-20" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a, idx) => (
+              {filtered.map((a) => (
                 <tr
                   key={a.id}
                   id={`incident-row-${a.id}`}
                   className={cn(
                     'border-b border-border/60 cursor-pointer transition-colors group',
-                    selected?.id === a.id
-                      ? 'bg-secondary/80'
-                      : 'hover:bg-muted/30',
+                    selected?.id === a.id ? 'bg-secondary/80' : 'hover:bg-muted/30',
                     a.acked && 'opacity-60'
                   )}
                   onClick={() => setSelected(a)}
                 >
-                  {/* Left severity stripe */}
                   <td className="w-1 p-0">
                     <div
                       className={cn(
@@ -643,7 +603,19 @@ export default function IncidentCenter() {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <SeverityBadge severity={a.severity} />
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-semibold uppercase',
+                        a.severity === 'critical'
+                          ? 'bg-status-critical/20 text-status-critical'
+                          : a.severity === 'warning'
+                            ? 'bg-status-warning/20 text-status-warning'
+                            : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      <SeverityIcon severity={a.severity} />
+                      {sevLabel(a.severity)}
+                    </span>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-foreground">{a.subsystem}</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{a.code}</td>
@@ -658,13 +630,15 @@ export default function IncidentCenter() {
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <p className="text-xs text-muted-foreground whitespace-nowrap">{formatTs(a.timestamp)}</p>
-                    <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">{timeAgo(a.timestamp)}</p>
+                    <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">
+                      {timeAgoRelative(a.timestamp)}
+                    </p>
                   </td>
                   <td className="px-4 py-3">
                     {a.acked ? (
                       <span className="inline-flex items-center gap-1 text-xs text-primary">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Подтверждено
+                        <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
+                        {t('incidents.statusAckOk')}
                       </span>
                     ) : (
                       <span
@@ -673,7 +647,7 @@ export default function IncidentCenter() {
                           a.severity === 'critical' ? 'text-status-critical' : 'text-status-warning'
                         )}
                       >
-                        Открыт
+                        {t('incidents.statusOpen')}
                       </span>
                     )}
                   </td>
@@ -687,7 +661,7 @@ export default function IncidentCenter() {
                         setSelected(a);
                       }}
                     >
-                      Детали →
+                      {t('incidents.details')} →
                     </button>
                   </td>
                 </tr>
@@ -695,12 +669,11 @@ export default function IncidentCenter() {
             </tbody>
           </table>
           <div className="px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground">
-            Показано {filtered.length} из {alerts.length} инцидентов
+            {t('incidents.shownOf', { shown: String(filtered.length), total: String(alerts.length) })}
           </div>
         </div>
       ) : null}
 
-      {/* ── Detail drawer ── */}
       {selected ? (
         <div
           className="fixed inset-0 z-50 flex justify-end"
@@ -709,16 +682,13 @@ export default function IncidentCenter() {
           aria-labelledby="incident-detail-title"
           onClick={() => setSelected(null)}
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          {/* Panel */}
           <div
             className="relative w-full max-w-lg h-full bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden"
             style={{ animation: 'slideInRight 0.2s ease-out' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Drawer header */}
             <div
               className={cn(
                 'px-5 py-4 border-b border-border',
@@ -732,7 +702,19 @@ export default function IncidentCenter() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <SeverityBadge severity={selected.severity} size="lg" />
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-0.5 px-3 py-1 text-xs rounded font-bold uppercase tracking-wider',
+                        selected.severity === 'critical'
+                          ? 'bg-status-critical/20 text-status-critical border border-status-critical/30'
+                          : selected.severity === 'warning'
+                            ? 'bg-status-warning/20 text-status-warning border border-status-warning/30'
+                            : 'bg-muted text-muted-foreground border border-border'
+                      )}
+                    >
+                      <SeverityIcon severity={selected.severity} />
+                      {sevLabel(selected.severity)}
+                    </span>
                     <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
                       {selected.subsystem}
                     </span>
@@ -750,66 +732,67 @@ export default function IncidentCenter() {
                   id="incident-drawer-close"
                   className="p-2 rounded-md hover:bg-muted shrink-0 transition-colors"
                   onClick={() => setSelected(null)}
-                  aria-label="Закрыть (Esc)"
-                  title="Закрыть (Esc)"
+                  aria-label={t('incidents.close')}
+                  title={t('incidents.closeEsc')}
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden />
                 </button>
               </div>
             </div>
 
-            {/* Drawer body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-sm">
-
-              {/* Timestamp */}
               <div className="flex items-start gap-3">
-                <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" aria-hidden />
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground mb-0.5">Время инцидента</p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground mb-0.5">
+                    {t('incidents.incidentTime')}
+                  </p>
                   <p className="font-mono text-foreground">{formatTs(selected.timestamp)}</p>
-                  <p className="text-xs text-muted-foreground/70 font-mono mt-0.5">{timeAgo(selected.timestamp)}</p>
+                  <p className="text-xs text-muted-foreground/70 font-mono mt-0.5">
+                    {timeAgoRelative(selected.timestamp)}
+                  </p>
                 </div>
               </div>
 
-              {/* Message */}
               <div className="rounded-lg bg-muted/40 border border-border p-4">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Описание</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t('incidents.description')}</p>
                 <p className="text-foreground leading-relaxed">{selected.message}</p>
               </div>
 
-              {/* Recommendation */}
               <div className="rounded-lg border-l-4 border-l-primary/60 bg-primary/5 border-y border-r border-primary/20 p-4">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">💡 Рекомендация</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                  {t('incidents.recommendation')}
+                </p>
                 <p className="text-foreground leading-relaxed">{selected.recommendation}</p>
               </div>
 
-              {/* Ack status */}
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
                   {t('incidents.acknowledgement')}
                 </p>
                 {selected.acked ? (
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Подтверждено{selected.ackedAt ? ` · ${formatTs(selected.ackedAt)}` : ''}
+                    <CheckCircle2 className="w-4 h-4" aria-hidden />
+                    {selected.ackedAt
+                      ? t('incidents.ackStatusWithTime', { time: formatTs(selected.ackedAt) })
+                      : t('incidents.acknowledged')}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-sm">Ожидает подтверждения оператора</p>
+                  <p className="text-muted-foreground text-sm">{t('incidents.pendingAck')}</p>
                 )}
               </div>
 
-              {/* Quick actions */}
               <div className="space-y-2 pt-1 border-t border-border">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Быстрые действия</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">{t('incidents.quickActions')}</p>
                 <button
                   type="button"
                   id="incident-open-replay"
                   className="w-full inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-background hover:bg-secondary text-sm font-medium transition-colors"
                   onClick={() => openReplay(selected)}
                 >
-                  <History className="w-4 h-4 text-primary" />
-                  <span>Replay вокруг инцидента</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-50 ml-auto" />
+                  <History className="w-4 h-4 text-primary" aria-hidden />
+                  <span>{t('incidents.replayAround')}</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-50 ml-auto" aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -817,14 +800,13 @@ export default function IncidentCenter() {
                   className="w-full inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-background hover:bg-secondary text-sm font-medium transition-colors"
                   onClick={() => openReport(selected)}
                 >
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span>Отчёт за это окно</span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-50 ml-auto" />
+                  <FileText className="w-4 h-4 text-primary" aria-hidden />
+                  <span>{t('incidents.reportWindow')}</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-50 ml-auto" aria-hidden />
                 </button>
               </div>
             </div>
 
-            {/* Drawer footer — Ack action */}
             <div className="p-5 border-t border-border bg-card">
               {!selected.acked ? (
                 <button
@@ -836,20 +818,23 @@ export default function IncidentCenter() {
                 >
                   {ackSubmitting ? (
                     <>
-                      <div className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-                      Отправка…
+                      <div
+                        className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin"
+                        aria-hidden
+                      />
+                      {t('incidents.ackSending')}
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      Подтвердить инцидент
+                      <CheckCircle2 className="w-4 h-4" aria-hidden />
+                      {t('incidents.ackButton')}
                     </>
                   )}
                 </button>
               ) : (
                 <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4 text-primary" />
-                  Инцидент уже подтверждён
+                  <CheckCircle2 className="w-4 h-4 text-primary" aria-hidden />
+                  {t('incidents.alreadyAcked')}
                 </div>
               )}
             </div>
@@ -857,7 +842,6 @@ export default function IncidentCenter() {
         </div>
       ) : null}
 
-      {/* Drawer slide-in animation */}
       <style>{`
         @keyframes slideInRight {
           from { transform: translateX(100%); }
